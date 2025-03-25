@@ -78,7 +78,7 @@ template <typename T> static Command *command_creator(LAMMPS *lmp)
 
 The Input class contains methods for reading, pre-processing and
 parsing LAMMPS commands and input files and will dispatch commands
-to the respective class instances or contains the code to execute
+to the respective class instances or contain the code to execute
 the commands directly.  It also contains the instance of the
 Variable class which performs computations and text substitutions.
 
@@ -89,7 +89,7 @@ Variable class which performs computations and text substitutions.
 \verbatim embed:rst
 
 This sets up the input processing, processes the *-var* and *-echo*
-command line flags, holds the factory of commands and creates and
+command-line flags, holds the factory of commands and creates and
 initializes an instance of the Variable class.
 
 To execute a command, a specific class instance, derived from
@@ -188,7 +188,7 @@ Input::~Input()
 
 This will read lines from *infile*, parse and execute them until the end
 of the file is reached.  The *infile* pointer will usually point to
-``stdin`` or the input file given with the ``-in`` command line flag.
+``stdin`` or the input file given with the ``-in`` command-line flag.
 
 \endverbatim */
 
@@ -320,8 +320,8 @@ void Input::file()
  *
 \verbatim embed:rst
 
-This function opens the file at the path *filename*, put the current
-file pointer stored in *infile* on a stack and instead assign *infile*
+This function opens the file at the path *filename*, puts the current
+file pointer stored in *infile* on a stack and instead assigns *infile*
 with the newly opened file pointer.  Then it will call the
 :cpp:func:`Input::file() <LAMMPS_NS::Input::file()>` function to read,
 parse and execute the contents of that file.  When the end of the file
@@ -423,7 +423,7 @@ void Input::write_echo(const std::string &txt)
 }
 
 /* ----------------------------------------------------------------------
-   parse copy of command line by inserting string terminators
+   parse copy of command-line by inserting string terminators
    strip comment = all chars from # on
    replace all $ via variable substitution except within quotes
    command = first word
@@ -610,7 +610,7 @@ void Input::substitute(char *&str, char *&str2, int &max, int &max2, int flag)
 
         while (var[i] != '\0' && var[i] != '}') i++;
 
-        if (var[i] == '\0') error->one(FLERR,"Invalid variable name");
+        if (var[i] == '\0') error->one(FLERR,"Invalid variable name {}", var);
         var[i] = '\0';
         beyond = ptr + strlen(var) + 3;
         value = variable->retrieve(var);
@@ -663,7 +663,7 @@ void Input::substitute(char *&str, char *&str2, int &max, int &max2, int flag)
       }
 
       if (value == nullptr)
-        error->one(FLERR,"Substitution for illegal variable {}",var);
+        error->one(FLERR,"Substitution for illegal variable {}"+utils::errorurl(13),var);
 
       // check if storage in str2 needs to be expanded
       // re-initialize ptr and ptr2 to the point beyond the variable.
@@ -884,7 +884,7 @@ int Input::execute_command()
 void Input::clear()
 {
   if (narg > 0) error->all(FLERR,"Illegal clear command: unexpected arguments but found {}", narg);
-  output->thermo->set_line(-1);
+  if (output->thermo) output->thermo->set_line(-1);
   lmp->destroy();
   lmp->create();
   lmp->post_create();
@@ -1151,7 +1151,7 @@ void Input::partition()
 
   char *cmd = strstr(line,arg[2]);
 
-  // execute the remaining command line on requested partitions
+  // execute the remaining command-line on requested partitions
 
   if (yesflag) {
     if (universe->iworld+1 >= ilo && universe->iworld+1 <= ihi) one(cmd);
@@ -1687,6 +1687,8 @@ void Input::newton()
 
   if (newton_pair || newton_bond) force->newton = 1;
   else force->newton = 0;
+
+  if (lmp->kokkos) lmp->kokkos->newton_check();
 }
 
 /* ---------------------------------------------------------------------- */

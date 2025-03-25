@@ -222,15 +222,31 @@ void PairATM::settings(int narg, char **arg)
 
 void PairATM::coeff(int narg, char **arg)
 {
-  if (narg != 4) error->all(FLERR,"Incorrect args for pair coefficients");
+  if (narg != 4) error->all(FLERR,"Incorrect args for pair coefficients" + utils::errorurl(21));
   if (!allocated) allocate();
 
   int ilo,ihi,jlo,jhi,klo,khi;
-  utils::bounds(FLERR,arg[0],1,atom->ntypes,ilo,ihi,error);
-  utils::bounds(FLERR,arg[1],1,atom->ntypes,jlo,jhi,error);
-  utils::bounds(FLERR,arg[2],1,atom->ntypes,klo,khi,error);
+  utils::bounds(FLERR, arg[0], 1, atom->ntypes, ilo, ihi, error);
+  utils::bounds(FLERR, arg[1], 1, atom->ntypes, jlo, jhi, error);
+  utils::bounds_typelabel(FLERR, arg[2], 1, atom->ntypes, klo, khi, lmp, Atom::ATOM);
 
-  double nu_one = utils::numeric(FLERR,arg[3],false,lmp);
+  // if explicit numeric value or type label used, reorder such at I < J < K
+  // note that, in the above case, I is already guaranteed to be less than J
+
+  if (jlo == jhi && klo == khi && klo < jlo) {
+    klo = jlo;
+    jlo = khi;
+    khi = klo;
+    jhi = jlo;
+    if (ilo == ihi && jlo == jhi && jlo < ilo) {
+      jlo = ilo;
+      ilo = jhi;
+      jhi = jlo;
+      ihi = ilo;
+    }
+  }
+
+  double nu_one = utils::numeric(FLERR, arg[3], false, lmp);
 
   int count = 0;
   for (int i = ilo; i <= ihi; i++) {
@@ -243,7 +259,7 @@ void PairATM::coeff(int narg, char **arg)
     }
   }
 
-  if (count == 0) error->all(FLERR,"Incorrect args for pair coefficients");
+  if (count == 0) error->all(FLERR,"Incorrect args for pair coefficients" + utils::errorurl(21));
 }
 
 /* ----------------------------------------------------------------------

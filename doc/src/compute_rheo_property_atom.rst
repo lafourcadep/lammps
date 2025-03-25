@@ -55,7 +55,7 @@ Examples
 Description
 """""""""""
 
-.. versionadded:: TBD
+.. versionadded:: 29Aug2024
 
 Define a computation that stores atom attributes specific to the RHEO
 package for each atom in the group.  This is useful so that the values
@@ -81,7 +81,7 @@ includes *xx*, *xy*, *yx*, and *yy*. In 3D, this includes *xx*, *xy*, *xz*,
 Many properties require their respective fixes, listed below in related
 commands, be defined. For instance, the *viscosity* attribute is the
 viscosity of a particle calculated by
-:doc:`fix rheo/viscous <fix_rheo_viscosity>`. The meaning of less obvious
+:doc:`fix rheo/viscosity <fix_rheo_viscosity>`. The meaning of less obvious
 properties is described below.
 
 The *phase* property indicates whether the particle is in a fluid state,

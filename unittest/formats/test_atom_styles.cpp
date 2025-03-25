@@ -88,7 +88,7 @@ static void create_molecule_files(const std::string &h2o_filename, const std::st
 // whether to print verbose output (i.e. not capturing LAMMPS screen output).
 bool verbose = false;
 
-const double EPSILON = 5.0e-14;
+static const double EPSILON = 5.0e-14;
 
 namespace LAMMPS_NS {
 using ::testing::Eq;
@@ -347,8 +347,8 @@ void ASSERT_ATOM_STATE_EQ(Atom *atom, const AtomState &expected)
     ASSERT_ARRAY_ALLOCATED(atom->x, expected.has_x);
     ASSERT_ARRAY_ALLOCATED(atom->v, expected.has_v);
     ASSERT_ARRAY_ALLOCATED(atom->f, expected.has_f);
-    ASSERT_ARRAY_ALLOCATED(atom->q, expected.q_flag);
     ASSERT_ARRAY_ALLOCATED(atom->mu, expected.mu_flag);
+    ASSERT_ARRAY_ALLOCATED(atom->q, expected.q_flag);
 
     ASSERT_ARRAY_ALLOCATED(atom->omega, expected.omega_flag);
     ASSERT_ARRAY_ALLOCATED(atom->angmom, expected.angmom_flag);

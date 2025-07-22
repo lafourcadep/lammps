@@ -55,6 +55,7 @@ FixIGARGrid::FixIGARGrid(LAMMPS *lmp, int narg, char **arg) :
   restart_file = 1;
 
   skin_original = neighbor->skin;
+
 }
 
 /* ---------------------------------------------------------------------- */
@@ -81,10 +82,10 @@ void FixIGARGrid::post_constructor()
     for (iy = nylo_out; iy <= nyhi_out; iy++)
       for (ix = nxlo_out; ix <= nxhi_out; ix++)
         U_igar[iz][iy][ix] = 0.0;
-  
+
   // zero igar_energy_transfer
   // in case compute_vector accesses it on timestep 0
-
+  
   outflag = 0;
   memset(&igar_energy_transfer[nzlo_out][nylo_out][nxlo_out],0,
          ngridout*sizeof(double));
@@ -97,12 +98,14 @@ void FixIGARGrid::post_constructor()
     grid->forward_comm(Grid3d::FIX,this,0,1,sizeof(double),
                        grid_buf1,grid_buf2,MPI_DOUBLE);
   }
+  
 }
 
 /* ---------------------------------------------------------------------- */
 
 void FixIGARGrid::init()
 {
+  
   FixIGAR::init();
 
   if (neighbor->skin > skin_original)
@@ -113,8 +116,10 @@ void FixIGARGrid::init()
 
 void FixIGARGrid::post_force(int /*vflag*/)
 {
+
+  
   int ix,iy,iz;
-  double gamma1,gamma2;
+  //  double gamma1,gamma2;
 
   double **x = atom->x;
   double **v = atom->v;
@@ -132,10 +137,11 @@ void FixIGARGrid::post_force(int /*vflag*/)
   double dy = 1./dyinv;
   double dz = 1./dzinv;
 
+  
   // apply damping and thermostat to all atoms in fix group
 
   int flag = 0;
-
+  
   for (int i = 0; i < nlocal; i++) {
     if (mask[i] & groupbit) {
       ix = static_cast<int> ((x[i][0]-boxlo[0])*dxinv + OFFSET) - OFFSET;
@@ -149,6 +155,7 @@ void FixIGARGrid::post_force(int /*vflag*/)
           iz < nzlo_out || iz > nzhi_out) {
         flag = 1;
         continue;
+        std::cout << "Out of range ghosts cells" << std::endl;
       }
 
       if (U_igar[iz][iy][ix] < 0)
@@ -186,13 +193,14 @@ void FixIGARGrid::post_force(int /*vflag*/)
       f[i][2] += figar[i][2];      
     }
   }
-  //  vector_atom = array;
+  vector_atom = eigar;
 
   if (flag) error->one(FLERR,"Out of range fix igar/grid atoms");
 }
 
 double FixIGARGrid::interpolation_igar_grid_new(double pos_x, double pos_y, double pos_z)
 {
+  
   double Eval = 0.0;
 
   double *boxlo = domain->boxlo;
@@ -218,9 +226,9 @@ double FixIGARGrid::interpolation_igar_grid_new(double pos_x, double pos_y, doub
   int iy=0;
   int iz=0;
   
-  ix0 = static_cast<int> ((pos_x-boxlo[0])*dxinv + shift) - OFFSET;
-  iy0 = static_cast<int> ((pos_y-boxlo[1])*dyinv + shift) - OFFSET;
-  iz0 = static_cast<int> ((pos_z-boxlo[2])*dzinv + shift) - OFFSET;
+  ix0 = static_cast<int> ((pos_x-boxlo[0])*dxinv + OFFSET) - OFFSET;
+  iy0 = static_cast<int> ((pos_y-boxlo[1])*dyinv + OFFSET) - OFFSET;
+  iz0 = static_cast<int> ((pos_z-boxlo[2])*dzinv + OFFSET) - OFFSET;
   
   // if (ix0 < 0) ix0 += nxgrid;
   // if (iy0 < 0) iy0 += nygrid;
@@ -283,7 +291,23 @@ double FixIGARGrid::interpolation_igar_grid_new(double pos_x, double pos_y, doub
   ind001[0] = ix;
   ind001[1] = iy;
   ind001[2] = iz;
-    
+
+  if (ind001[0] < nxlo_out || ind001[0] > nxhi_out ||
+      ind001[1] < nylo_out || ind001[1] > nyhi_out ||
+      ind001[2] < nzlo_out || ind001[2] > nzhi_out) {
+    std::cout << "001 Out of range ghosts cells" << std::endl;
+    std::cout << "ind001[0] =" << ind001[0] << std::endl;
+    std::cout << "ind001[1] =" << ind001[1] << std::endl;
+    std::cout << "ind001[2] =" << ind001[2] << std::endl;
+    std::cout << "ix0 =" << ix0 << std::endl;
+    std::cout << "iy0 =" << iy0 << std::endl;
+    std::cout << "iz0 =" << iz0 << std::endl;
+    std::cout << "nxlo_out, nxhi_out =" << nxlo_out << " , " << nxhi_out << std::endl;
+    std::cout << "nylo_out, nyhi_out =" << nylo_out << " , " << nyhi_out << std::endl;
+    std::cout << "nzlo_out, nzhi_out =" << nzlo_out << " , " << nzhi_out << std::endl;    
+    std::abort();
+  }
+  
   ix = ix0+1;
   iy = iy0;
   iz = iz0+1;
@@ -325,6 +349,48 @@ double FixIGARGrid::interpolation_igar_grid_new(double pos_x, double pos_y, doub
 
   double en000,en100,en110,en010,en001,en101,en111,en011;
 
+  if (ind000[0] < nxlo_out || ind000[0] > nxhi_out ||
+      ind000[1] < nylo_out || ind000[1] > nyhi_out ||
+      ind000[2] < nzlo_out || ind000[2] > nzhi_out) {
+    std::cout << "000 Out of range ghosts cells" << std::endl;
+  }
+
+  if (ind100[0] < nxlo_out || ind100[0] > nxhi_out ||
+      ind100[1] < nylo_out || ind100[1] > nyhi_out ||
+      ind100[2] < nzlo_out || ind100[2] > nzhi_out) {
+    std::cout << "100 Out of range ghosts cells" << std::endl;
+  }
+
+  if (ind010[0] < nxlo_out || ind010[0] > nxhi_out ||
+      ind010[1] < nylo_out || ind010[1] > nyhi_out ||
+      ind010[2] < nzlo_out || ind010[2] > nzhi_out) {
+    std::cout << "010 Out of range ghosts cells" << std::endl;
+  }
+
+  if (ind110[0] < nxlo_out || ind110[0] > nxhi_out ||
+      ind110[1] < nylo_out || ind110[1] > nyhi_out ||
+      ind110[2] < nzlo_out || ind110[2] > nzhi_out) {
+    std::cout << "110 Out of range ghosts cells" << std::endl;
+  }
+
+  if (ind101[0] < nxlo_out || ind101[0] > nxhi_out ||
+      ind101[1] < nylo_out || ind101[1] > nyhi_out ||
+      ind101[2] < nzlo_out || ind101[2] > nzhi_out) {
+    std::cout << "101 Out of range ghosts cells" << std::endl;
+  }
+
+  if (ind011[0] < nxlo_out || ind011[0] > nxhi_out ||
+      ind011[1] < nylo_out || ind011[1] > nyhi_out ||
+      ind011[2] < nzlo_out || ind011[2] > nzhi_out) {
+    std::cout << "011 Out of range ghosts cells" << std::endl;
+  }
+
+  if (ind111[0] < nxlo_out || ind111[0] > nxhi_out ||
+      ind111[1] < nylo_out || ind111[1] > nyhi_out ||
+      ind111[2] < nzlo_out || ind111[2] > nzhi_out) {
+    std::cout << "111 Out of range ghosts cells" << std::endl;
+  }
+  
   en000 = U_igar[ind000[2]][ind000[1]][ind000[0]];
   en100 = U_igar[ind100[2]][ind100[1]][ind100[0]];
   en010 = U_igar[ind010[2]][ind010[1]][ind010[0]];
@@ -336,9 +402,9 @@ double FixIGARGrid::interpolation_igar_grid_new(double pos_x, double pos_y, doub
 
   double xl,yl,zl;
 
-  double pos_grid_x = ((pos_x-boxlo[0])*dxinv + shift) - OFFSET;
-  double pos_grid_y = ((pos_y-boxlo[1])*dyinv + shift) - OFFSET;
-  double pos_grid_z = ((pos_z-boxlo[2])*dzinv + shift) - OFFSET;
+  double pos_grid_x = ((pos_x-boxlo[0])*dxinv + OFFSET) - OFFSET;
+  double pos_grid_y = ((pos_y-boxlo[1])*dyinv + OFFSET) - OFFSET;
+  double pos_grid_z = ((pos_z-boxlo[2])*dzinv + OFFSET) - OFFSET;
   
   xl = pos_grid_x - floor(pos_grid_x);
   yl = pos_grid_y - floor(pos_grid_y);
@@ -346,12 +412,15 @@ double FixIGARGrid::interpolation_igar_grid_new(double pos_x, double pos_y, doub
 
   Eval = en000*(1.0-xl)*(1.0-yl)*(1.0-zl) + en100*xl*(1.0-yl)*(1.0-zl) + en010*(1.0-xl)*yl*(1.0-zl) + en001*(1.0-xl)*(1.0-yl)*zl + en101*xl*(1.0-yl)*zl + en011*(1.0-xl)*yl*zl + en110*xl*yl*(1.0-zl) + en111*xl*yl*zl;  
   return Eval;
+
+  
 }
 
 /* ---------------------------------------------------------------------- */
 
 void FixIGARGrid::end_of_step()
 {
+  
   int ix,iy,iz;
 
   double **x = atom->x;
@@ -385,6 +454,7 @@ void FixIGARGrid::end_of_step()
 
 void FixIGARGrid::read_igar_energies(const std::string &filename)
 {
+  
   memory->create3d_offset(U_igar_read, nzlo_in, nzhi_in, nylo_in, nyhi_in, nxlo_in, nxhi_in,
                           "igar/grid:U_igar_read");
   memset(&U_igar_read[nzlo_in][nylo_in][nxlo_in], 0, ngridown * sizeof(int));
@@ -419,6 +489,8 @@ void FixIGARGrid::read_igar_energies(const std::string &filename)
   if (flagall) error->all(FLERR, "Fix igar/grid infile did not set all temperatures");
 
   memory->destroy3d_offset(U_igar_read, nzlo_in, nylo_in, nxlo_in);
+
+  
 }
 
 /* ----------------------------------------------------------------------
@@ -433,7 +505,6 @@ int FixIGARGrid::unpack_read_grid(int /*nlines*/, char *buffer)
   // skip comment lines
   // tokenize the line into ix,iy,iz grid index plus temperature value
   // if I own grid point, store the value
-
   int nread = 0;
 
   for (const auto &line : utils::split_lines(buffer)) {
@@ -470,6 +541,7 @@ int FixIGARGrid::unpack_read_grid(int /*nlines*/, char *buffer)
   }
 
   return nread;
+
 }
 
 /* ----------------------------------------------------------------------
@@ -556,6 +628,8 @@ void FixIGARGrid::write_restart_file(const char *file)
 
 void FixIGARGrid::pack_write_grid(int /*which*/, void *vbuf)
 {
+
+  
   int ix, iy, iz;
 
   auto buf = (double *) vbuf;
@@ -565,6 +639,7 @@ void FixIGARGrid::pack_write_grid(int /*which*/, void *vbuf)
     for (iy = nylo_in; iy <= nyhi_in; iy++)
       for (ix = nxlo_in; ix <= nxhi_in; ix++)
         buf[m++] = U_igar[iz][iy][ix];
+
 }
 
 /* ----------------------------------------------------------------------
@@ -573,6 +648,7 @@ void FixIGARGrid::pack_write_grid(int /*which*/, void *vbuf)
 
 void FixIGARGrid::unpack_write_grid(int /*which*/, void *vbuf, int *bounds)
 {
+
   int ix, iy, iz;
 
   int xlo = bounds[0];
@@ -592,6 +668,7 @@ void FixIGARGrid::unpack_write_grid(int /*which*/, void *vbuf, int *bounds)
         value = buf[m++];
         fprintf(fpout, "%d %d %d %20.16g\n", ix+1, iy+1, iz+1, value);
       }
+
 }
 
 /* ----------------------------------------------------------------------
@@ -605,10 +682,10 @@ void FixIGARGrid::reset_grid()
   // if not, just return
 
   int tmp[12];
-  double maxdist = 0.5 * neighbor->skin;
+  double maxdist = 10.0 * neighbor->skin;
   Grid3d *gridnew = new Grid3d(lmp, world, nxgrid, nygrid, nzgrid);
   gridnew->set_distance(maxdist);
-  gridnew->set_stencil_grid(1,1);
+  gridnew->set_stencil_grid(3,3);
   gridnew->setup_grid(tmp[0],tmp[1],tmp[2],tmp[3],tmp[4],tmp[5],
                       tmp[6],tmp[7],tmp[8],tmp[9],tmp[10],tmp[11]);
 
@@ -667,6 +744,7 @@ void FixIGARGrid::reset_grid()
   outflag = 0;
   memset(&igar_energy_transfer[nzlo_out][nylo_out][nxlo_out],0,
          ngridout*sizeof(double));
+
 }
 
 /* ----------------------------------------------------------------------
@@ -675,10 +753,12 @@ void FixIGARGrid::reset_grid()
 
 void FixIGARGrid::pack_forward_grid(int /*which*/, void *vbuf, int nlist, int *list)
 {
+
   auto buf = (double *) vbuf;
   double *src = &U_igar[nzlo_out][nylo_out][nxlo_out];
 
   for (int i = 0; i < nlist; i++) buf[i] = src[list[i]];
+
 }
 
 /* ----------------------------------------------------------------------
@@ -687,10 +767,13 @@ void FixIGARGrid::pack_forward_grid(int /*which*/, void *vbuf, int nlist, int *l
 
 void FixIGARGrid::unpack_forward_grid(int /*which*/, void *vbuf, int nlist, int *list)
 {
+
   auto buf = (double *) vbuf;
   double *dest = &U_igar[nzlo_out][nylo_out][nxlo_out];
 
   for (int i = 0; i < nlist; i++) dest[list[i]] = buf[i];
+
+  
 }
 
 /* ----------------------------------------------------------------------
@@ -699,10 +782,14 @@ void FixIGARGrid::unpack_forward_grid(int /*which*/, void *vbuf, int nlist, int 
 
 void FixIGARGrid::pack_reverse_grid(int /*which*/, void *vbuf, int nlist, int *list)
 {
+
+  
   auto buf = (double *) vbuf;
   double *src = &igar_energy_transfer[nzlo_out][nylo_out][nxlo_out];
 
   for (int i = 0; i < nlist; i++) buf[i] = src[list[i]];
+
+  
 }
 
 /* ----------------------------------------------------------------------
@@ -711,10 +798,13 @@ void FixIGARGrid::pack_reverse_grid(int /*which*/, void *vbuf, int nlist, int *l
 
 void FixIGARGrid::unpack_reverse_grid(int /*which*/, void *vbuf, int nlist, int *list)
 {
+  
   auto buf = (double *) vbuf;
   double *dest = &igar_energy_transfer[nzlo_out][nylo_out][nxlo_out];
 
   for (int i = 0; i < nlist; i++) dest[list[i]] += buf[i];
+
+  
 }
 
 /* ----------------------------------------------------------------------
@@ -723,11 +813,14 @@ void FixIGARGrid::unpack_reverse_grid(int /*which*/, void *vbuf, int nlist, int 
 
 void FixIGARGrid::pack_remap_grid(int /*which*/, void *vbuf, int nlist, int *list)
 {
+  
   auto buf = (double *) vbuf;
   double *src =
     &U_igar_previous[nzlo_out_previous][nylo_out_previous][nxlo_out_previous];
 
   for (int i = 0; i < nlist; i++) buf[i] = src[list[i]];
+
+  
 }
 
 /* ----------------------------------------------------------------------
@@ -736,10 +829,14 @@ void FixIGARGrid::pack_remap_grid(int /*which*/, void *vbuf, int nlist, int *lis
 
 void FixIGARGrid::unpack_remap_grid(int /*which*/, void *vbuf, int nlist, int *list)
 {
+
+  
   auto buf = (double *) vbuf;
   double *dest = &U_igar[nzlo_out][nylo_out][nxlo_out];
 
   for (int i = 0; i < nlist; i++) dest[list[i]] = buf[i];
+
+  
 }
 
 /* ----------------------------------------------------------------------
@@ -748,11 +845,11 @@ void FixIGARGrid::unpack_remap_grid(int /*which*/, void *vbuf, int nlist, int *l
 
 void FixIGARGrid::allocate_grid()
 {
-  double maxdist = 0.5 * neighbor->skin;
+  double maxdist = neighbor->skin;
 
   grid = new Grid3d(lmp, world, nxgrid, nygrid, nzgrid);
   grid->set_distance(maxdist);
-  grid->set_stencil_grid(1,1);
+  grid->set_stencil_grid(3,3);
   grid->setup_grid(nxlo_in, nxhi_in, nylo_in, nyhi_in, nzlo_in, nzhi_in,
                    nxlo_out, nxhi_out, nylo_out, nyhi_out, nzlo_out, nzhi_out);
 
@@ -774,6 +871,8 @@ void FixIGARGrid::allocate_grid()
                           "igar/grid:U_igar");
   memory->create3d_offset(igar_energy_transfer, nzlo_out, nzhi_out, nylo_out, nyhi_out, nxlo_out,
                           nxhi_out, "igar/grid:igar_energy_transfer");
+
+  
 }
 
 /* ----------------------------------------------------------------------
@@ -782,6 +881,8 @@ void FixIGARGrid::allocate_grid()
 
 void FixIGARGrid::deallocate_grid()
 {
+
+  
   delete grid;
   memory->destroy(grid_buf1);
   memory->destroy(grid_buf2);
@@ -789,6 +890,8 @@ void FixIGARGrid::deallocate_grid()
   //  memory->destroy3d_offset(U_igar_old, nzlo_out, nylo_out, nxlo_out);
   memory->destroy3d_offset(U_igar, nzlo_out, nylo_out, nxlo_out);
   memory->destroy3d_offset(igar_energy_transfer, nzlo_out, nylo_out, nxlo_out);
+
+  
 }
 
 /* ----------------------------------------------------------------------

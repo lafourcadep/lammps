@@ -58,7 +58,8 @@ FixIGAR::FixIGAR(LAMMPS *lmp, int narg, char **arg) :
   if (narg != 9) error->all(FLERR,"Illegal fix igar command");
 
   peratom_flag = 1;
-  size_vector = 2;
+  size_vector = 0;
+  size_peratom_cols = 0;
   nevery = 1;
   
   thermo_energy = 1;
@@ -69,7 +70,7 @@ FixIGAR::FixIGAR(LAMMPS *lmp, int narg, char **arg) :
   global_freq = 1;  
   extscalar = 1;  
 
-  kIm = utils::inumeric(FLERR,arg[3],false,lmp);
+  kIm = utils::numeric(FLERR,arg[3],false,lmp);
   std::cout << "kIm = " << kIm << std::endl;
   
   nxgrid = utils::inumeric(FLERR,arg[4],false,lmp);
@@ -103,7 +104,7 @@ FixIGAR::FixIGAR(LAMMPS *lmp, int narg, char **arg) :
     error->all(FLERR,"Too many grid points in fix hrtem");
   ngridtotal = totalgrid;
 
-  // allocate per-atom figar and zero it
+  // allocate per-atom figar /eigar and zero it
 
   figar = nullptr;
   eigar = nullptr;
@@ -155,7 +156,7 @@ void FixIGAR::post_constructor()
   for (iz = 0; iz < nzgrid; iz++)
     for (iy = 0; iy < nygrid; iy++)
       for (ix = 0; ix < nxgrid; ix++)
-        U_igar[iz][iy][ix] = tinit;
+        U_igar[iz][iy][ix] = 0.0;
   
   for (int i = 0; i < atom->nmax; i++) {
     eigar[i] = 0.0;
@@ -231,6 +232,7 @@ void FixIGAR::post_force_setup(int /*vflag*/)
 
 void FixIGAR::post_force(int /*vflag*/)
 {
+  
   int ix,iy,iz;
   //  double gamma1,gamma2;
 
@@ -740,7 +742,7 @@ double FixIGAR::compute_scalar()
   for (iz = 0; iz < nzgrid; iz++) {
     for (iy = 0; iy < nygrid; iy++) {
       for (ix = 0; ix < nxgrid; ix++) {
-        igar_energy -= igar_energy_transfer_all[iz][iy][ix];
+        igar_energy -= 0.;//igar_energy_transfer_all[iz][iy][ix];
       }
     }
   }

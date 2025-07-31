@@ -98,6 +98,15 @@ class EAPOD : protected Pointers {
   int inversedegree;
   int pdegree[2];
   int nbesselpars;
+
+  // if true, rescale the lennard jones function with the inner cut-off radius
+  bool useScaledLJ;
+  // rin if useScaledLJ is true, else 1
+  double scaleLJ;
+
+  // hyperparameters for the fadein (sigmoid) function
+  double fadeinMu, fadeinDelta;
+
   int timing;
   double comptime[20];
   double besselparams[3];

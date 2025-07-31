@@ -55,6 +55,10 @@ EAPOD::EAPOD(LAMMPS *_lmp, const std::string &pod_file, const std::string &coeff
   besseldegree = 4;
   inversedegree = 8;
   nbesselpars = 3;
+  useScaledLJ = false;
+  scaleLJ = 1;
+  fadeinMu = 0.0;
+  fadeinDelta = 0.0;
   true4BodyDesc = 1;
   ns = nbesselpars*besseldegree + inversedegree;
   Njmax = 100;
@@ -204,6 +208,12 @@ void EAPOD::read_pod_file(std::string pod_file)
         besseldegree = utils::inumeric(FLERR,words[1],false,lmp);
       if (keywd == "inverse_polynomial_degree")
         inversedegree = utils::inumeric(FLERR,words[1],false,lmp);
+      if (keywd == "use_scaled_lj")
+        useScaledLJ = utils::logical(FLERR,words[1],false,lmp);
+      if (keywd == "fadein_mu")
+        fadeinMu = utils::numeric(FLERR,words[1],false,lmp);
+      if (keywd == "fadein_delta")
+        fadeinDelta = utils::numeric(FLERR,words[1],false,lmp);
       if (keywd == "onebody") onebody = utils::inumeric(FLERR,words[1],false,lmp);
       if (keywd == "twobody_number_radial_basis_functions")
         nrbf2 = utils::inumeric(FLERR,words[1],false,lmp);
@@ -256,6 +266,8 @@ void EAPOD::read_pod_file(std::string pod_file)
       elemindex[i1 + Ne*i2] = k;
       k += 1;
     }
+  
+  if (useScaledLJ) scaleLJ = rin;
 
   init2body();
   init3body(P3);
@@ -368,6 +380,9 @@ void EAPOD::read_pod_file(std::string pod_file)
     utils::logmesg(lmp, "outer cut-off radius: {}\n", rcut);
     utils::logmesg(lmp, "bessel polynomial degree: {}\n", besseldegree);
     utils::logmesg(lmp, "inverse polynomial degree: {}\n",inversedegree);
+    utils::logmesg(lmp, "use scaled lennard-jones: {}\n", useScaledLJ);
+    utils::logmesg(lmp, "fadein mu: {}\n", fadeinMu);
+    utils::logmesg(lmp, "fadein delta: {}\n", fadeinDelta);
     utils::logmesg(lmp, "one-body potential: {}\n", onebody);
     utils::logmesg(lmp, "two-body radial basis functions: {}\n", nrbf2);
     utils::logmesg(lmp, "three-body radial basis functions: {}\n", nrbf3);
@@ -2083,7 +2098,7 @@ void EAPOD::radialbasis(double *rbf, double *rbfx, double *rbfy, double *rbfz, d
     for (int i=0; i<inversedegree; i++) {
       int p = besseldegree*nbesselpars + i;
       int nij = n + N*p;
-      double a = powint(dij, i+1);
+      double a = powint(dij/scaleLJ, i+1);
 
       rbf[nij] = fcut/a;
 
@@ -2373,7 +2388,7 @@ void EAPOD::snapshots(double *rbf, double *xij, int N)
     for (int i=0; i<inversedegree; i++) {
       int p = besseldegree*nbesselpars + i;
       int nij = n + N*p;
-      double a = powint(dij, i+1);
+      double a = powint(dij/scaleLJ, i+1);
 
       // Compute the RBF
       rbf[nij] = fcut/a;

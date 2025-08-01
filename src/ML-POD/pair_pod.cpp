@@ -541,6 +541,11 @@ void PairPOD::copy_data_from_pod_class()
   besseldegree = fastpodptr->besseldegree; // degree of Bessel functions
   inversedegree = fastpodptr->inversedegree; // degree of inverse functions
   nbesselpars = fastpodptr->nbesselpars;  // number of Bessel parameters
+
+  scaleLJ = fastpodptr->scaleLJ;  // rin if EAPOD::useScaledLJ is true, else 1
+  fadeinMu = fastpodptr->fadeinMu;
+  fadeinDelta = fastpodptr->fadeinDelta;
+
   nCoeffPerElement = fastpodptr->nCoeffPerElement; // number of coefficients per element = (nl1 + Mdesc*nClusters)
   ns = fastpodptr->ns;      // number of snapshots for radial basis functions
   nl1 = fastpodptr->nl1;  // number of one-body descriptors
@@ -747,10 +752,25 @@ void PairPOD::radialbasis(double *rbft, double *rbftx, double *rbfty, double *rb
     // Calculate the derivative of the final cutoff function
     double dfcut = ((3.0/(rmax*exp(-1.0)))*(y2)*y6*(y*y2 - 1.0))/y7;
 
-    // Calculate fcut/r, fcut/r^2, and dfcut/r
-    double f1 = fcut/r;
+    // Compute the fadein function and its derivative w.r.t. dij
+    double fin = 1;
+    double dfin = 0;
+    if (fadeinMu > 0 && fadeinDelta > 0) {
+      double mudij = fadeinMu - dij;
+      double invDelta = 2/fadeinDelta;
+      double expIn = exp(invDelta * mudij);
+      double fin = 1/(1+expIn);
+      double dfin = invDelta * expIn * fin*fin;
+    }
+
+    // Compute fin*fcut and its derivative
+    double fincut = fin*fcut;
+    double dfincut = fin*dfcut + dfin*fcut;
+
+    // Calculate fincut/r, fincut/r^2, and dfincut/r
+    double f1 = fincut/r;
     double f2 = f1/r;
-    double df1 = dfcut/r;
+    double df1 = dfincut/r;
 
     double alpha = besselparams[0];
     double t1 = (1.0-exp(-alpha));
@@ -804,17 +824,17 @@ void PairPOD::radialbasis(double *rbft, double *rbftx, double *rbfty, double *rb
       rbftz[idxni] = drbftdr*dr3;
     }
 
-    // Calculate fcut/dij and dfcut/dij
-    f1 = fcut/dij;
+    // Calculate fincut/dij and dfincut/dij
+    f1 = fincut/dij;
     for (int i=0; i<inversedegree; i++) {
       int p = besseldegree*nbesselpars + i;
       //int idxni = n + Nij*p;
       int idxni = p + ns*n;
-      double a = powint(dij, i+1);
+      double a = powint(dij/scaleLJ, i+1);
 
-      rbft[idxni] = fcut/a;
+      rbft[idxni] = fincut/a;
 
-      double drbftdr = (dfcut - (i+1.0)*f1)/a;
+      double drbftdr = (dfincut - (i+1.0)*f1)/a;
       rbftx[idxni] = drbftdr*dr1;
       rbfty[idxni] = drbftdr*dr2;
       rbftz[idxni] = drbftdr*dr3;

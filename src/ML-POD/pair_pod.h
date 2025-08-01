@@ -111,6 +111,12 @@ class PairPOD : public Pair {
   int besseldegree;        // degree of Bessel functions
   int inversedegree;       // degree of inverse functions
   int nbesselpars;         // number of Bessel parameters
+
+  double scaleLJ;          // rin if EAPOD::useScaledLJ is true, else 1
+
+  // hyperparameters for the fadein (sigmoid) function
+  double fadeinMu, fadeinDelta;
+
   int nCoeffPerElement;    // number of coefficients per element = (nl1 + Mdesc*nClusters)
   int ns;                  // number of snapshots for radial basis functions
   int nl1, nl2, nl3, nl4, nl23, nl33, nl34, nl44, nl;    // number of local descriptors

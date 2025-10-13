@@ -27,13 +27,15 @@ selected examples.  Please see the chapter about :doc:`building LAMMPS
 <Build>` for descriptions of specific flags and options for LAMMPS in
 general and for specific packages.
 
+.. versionchanged:: 10Sep2025
+
 CMake can be used through either the command-line interface (CLI)
 program ``cmake`` (or ``cmake3``), a text mode interactive user
 interface (TUI) program ``ccmake`` (or ``ccmake3``), or a graphical user
 interface (GUI) program ``cmake-gui``.  All of them are portable
 software available on all supported platforms and can be used
-interchangeably.  As of LAMMPS version 2 August 2023, the minimum
-required CMake version is 3.16.
+interchangeably.  Since LAMMPS version 10Sep2025, the minimum
+required CMake version is 3.20.
 
 All details about features and settings for CMake are in the `CMake
 online documentation <https://cmake.org/documentation/>`_. We focus
@@ -285,7 +287,7 @@ when used before the CMake directory, there may be a space between the
 can have boolean values (on/off, yes/no, or 1/0 are all valid) or are
 strings representing a choice, or a path, or are free format. If the
 string would contain whitespace, it must be put in quotes, for example
-``-D CMAKE_TUNE_FLAGS="-ftree-vectorize -ffast-math"``.
+``-D CMAKE_CXX_FLAGS="-O3 -Wall -ftree-vectorize -ffast-math"``.
 
 CMake variables fall into two categories: 1) common CMake variables that
 are used by default for any CMake configuration setup and 2) project
@@ -341,8 +343,6 @@ Some common LAMMPS specific variables
      - compile some additional executables from the ``tools`` folder (default: ``off``)
    * - ``BUILD_DOC``
      - include building the HTML format documentation for packaging/installing (default: ``off``)
-   * - ``CMAKE_TUNE_FLAGS``
-     - common compiler flags, for optimization or instrumentation (default:)
    * - ``LAMMPS_MACHINE``
      - when set to ``name`` the LAMMPS executable and library will be called ``lmp_name`` and ``liblammps_name.a``
    * - ``FFT``

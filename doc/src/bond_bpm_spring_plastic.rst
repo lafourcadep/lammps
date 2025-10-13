@@ -51,7 +51,7 @@ Examples
 Description
 """""""""""
 
-.. versionadded:: TBD
+.. versionadded:: 2Apr2025
 
 The *bpm/spring/plastic* bond style computes forces based on
 deviations from the initial reference state of the two atoms and the
@@ -108,9 +108,9 @@ the data file or restart files read by the :doc:`read_data
 <read_data>` or :doc:`read_restart <read_restart>` commands:
 
 * :math:`k`             (force/distance units)
-* :math:`\epsilon_c`    (unit less)
+* :math:`\epsilon_c`    (unitless)
 * :math:`\gamma`        (force/velocity units)
-* :math:`\epsilon_p     (unit less)
+* :math:`\epsilon_p`    (unitless)
 
 See the :doc:`bpm/spring doc page <bond_bpm_spring>` for information on
 the *smooth*, *normalize*, *break*, *overlay/pair*, and *store/local*
@@ -133,16 +133,17 @@ Restart and other info
 """""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 
 This bond style writes the reference state and plastic history of each
-bond to :doc:`binary restart files <restart>`. Loading a restart
-file will properly restore bonds. However, the reference state is NOT
-written to data files. Therefore reading a data file will not
-restore bonds and will cause their reference states to be redefined.
+bond to :doc:`binary restart files <restart>`. Loading a restart file
+will properly restore bonds. However, the reference state is NOT written
+to data files.  Therefore reading a data file will not restore bonds and
+will cause their reference states to be redefined.
 
-The potential energy and the single() function of this bond style returns zero.
-The single() function also calculates two extra bond quantities, the initial
-distance :math:`r_0` and the current equilbrium length :math:`r_eq`. These extra
-quantities can be accessed by the :doc:`compute bond/local <compute_bond_local>`
-command as *b1* and *b2*, respectively.
+The potential energy and the single() function of this bond style
+returns zero.  The single() function also calculates two extra bond
+quantities, the initial distance :math:`r_0` and the current equilibrium
+length :math:`r_eq`. These extra quantities can be accessed by the
+:doc:`compute bond/local <compute_bond_local>` command as *b1* and *b2*,
+respectively.
 
 Restrictions
 """"""""""""
@@ -151,19 +152,24 @@ This bond style is part of the BPM package.  It is only enabled if
 LAMMPS was built with that package.  See the :doc:`Build package
 <Build_package>` page for more info.
 
-By default if pair interactions between bonded atoms are to be disabled,
-this bond style requires setting
+To handle breaking bonds, BPM bond styles have extra requirements for
+special bonds. If bonds cannot break (*break no*), then one can use any
+special bond weights. Otherwise, restrictions depend on whether pair
+forces are overlaid (*pair/overlay yes*). If so, then all weights must
+be one:
+
+.. code-block:: LAMMPS
+
+   special_bonds lj/coul 1 1 1
+
+If pair forces are disabled (*pair/overlay no*), the default, then the
+weights must be
 
 .. code-block:: LAMMPS
 
    special_bonds lj 0 1 1 coul 1 1 1
 
-and :doc:`newton <newton>` must be set to bond off.  If the *overlay/pair*
-keyword is set to *yes*, this bond style alternatively requires setting
-
-.. code-block:: LAMMPS
-
-   special_bonds lj/coul 1 1 1
+and :doc:`newton <newton>` must be set to bond off.
 
 Related commands
 """"""""""""""""

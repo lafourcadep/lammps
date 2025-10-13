@@ -12,10 +12,51 @@ stop LAMMPS and print a suitable error message in most cases, when a
 style/command is used that has been removed or will replace the command
 with the direct alternative (if available) and print a warning.
 
+ATC, AWPMD, and POEMS packages
+------------------------------
+
+.. deprecated:: 10Sep2025
+
+The ATC, AWPMD, and POEMS packages are removed.because there were
+unmaintained for a long time and their legacy C++ programming style
+started to create problems with modern C++ compilers.  LAMMPS version
+22 July 2025 is the last version that contains them.  You have to
+download and compile this version, if you want to use any of these
+packages.
+
+Neighbor style and comm mode multi/old
+--------------------------------------
+
+.. deprecated:: 10Sep2025
+
+The original implementation of neighbor style multi and comm mode multi,
+most recently available under "multi/old" has been removed.  The new
+implementation should be used instead.
+
+LAMMPS-GUI source code
+----------------------
+
+.. deprecated:: 10Sep2025
+
+The LAMMPS-GUI sources used to be included in LAMMPS but they are now
+hosted in their own git repository at
+https://github.com/akohlmey/lammps-gui/ and the corresponding online
+documentation is at https://lammps-gui.lammps.org/
+
+GJF formulation in fix langevin
+-------------------------------
+
+.. deprecated:: 22Jul2025
+
+The *gjf* keyword in fix langevin has been removed.  The GJF
+functionality has been moved to its own fix style :doc:`fix gjf
+<fix_gjf>`.
+
+
 LAMMPS shell
 ------------
 
-.. versionchanged:: 29Aug2024
+.. deprecated:: 29Aug2024
 
 The LAMMPS shell has been removed from the LAMMPS distribution. Users
 are encouraged to use the :ref:`LAMMPS-GUI <lammps_gui>` tool instead.
@@ -23,7 +64,7 @@ are encouraged to use the :ref:`LAMMPS-GUI <lammps_gui>` tool instead.
 i-PI tool
 ---------
 
-.. versionchanged:: 27Jun2024
+.. deprecated:: 27Jun2024
 
 The i-PI tool has been removed from the LAMMPS distribution.  Instead,
 instructions to install i-PI from PyPI via pip are provided.
@@ -169,6 +210,18 @@ the design were transferred to the
 performance characteristics on NVIDIA GPUs. Both, the KOKKOS
 and the :ref:`GPU package <PKG-GPU>` are maintained
 and allow running LAMMPS with GPU acceleration.
+
+Compute atom/molecule
+---------------------
+
+.. deprecated:: 11 Dec2015
+
+The atom/molecule command has been removed from LAMMPS since it was superseded
+by the more general and extensible "chunk infrastructure".  Here the system is
+partitioned in one of many possible ways - including using molecule IDs -
+through the :doc:`compute chunk/atom <compute_chunk_atom>` command and then
+summing is done using :doc:`compute reduce/chunk <compute_reduce_chunk>` Please
+refer to the :doc:`chunk HOWTO <Howto_chunk>` section for an overview.
 
 Fix ave/spatial and fix ave/spatial/sphere
 ------------------------------------------

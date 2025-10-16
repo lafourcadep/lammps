@@ -18,6 +18,7 @@
 #include "comm.h"
 #include "error.h"
 #include "force.h"
+#include "info.h"
 #include "memory.h"
 #include "neigh_list.h"
 #include "neighbor.h"
@@ -33,6 +34,13 @@
 #include <cmath>
 #include <cstring>
 #include <iostream>
+#include <fstream>
+#include <iomanip>
+#include <stdexcept>
+#include <string>
+
+#include <vector>
+#include <algorithm>
 
 using namespace LAMMPS_NS;
 
@@ -106,7 +114,6 @@ void PairSNAPTTM::compute(int eflag, int vflag)
 
   if (beta_max < list->inum) {
     memory->grow(beta,list->inum,ncoeff,"PairSNAPTTM:beta");
-    memory->grow(betazero,list->inum,"PairSNAPTTM:betazero");    
     memory->grow(bispectrum,list->inum,ncoeff,"PairSNAPTTM:bispectrum");
     beta_max = list->inum;
   }
@@ -209,18 +216,25 @@ void PairSNAPTTM::compute(int eflag, int vflag)
     // tally energy contribution
 
     if (eflag) {
-
+      double Te_loc = 0.;
+      
       // evdwl = energy of atom I, sum over coeffs_k * Bi_k
       double* coeffi = beta[ii];
       //      double* coeffi = coeffelem[ielem];
-      Fix *fix = modify->fix[ref2index];
-      double *fix_vector = modify->fix[ref2index]->vector_atom;
+      //      Fix *fix = modify->fix[ref2index];
+      Fix *fix = modify->get_fix_by_id(idref);
+      double *fix_vector = fix->vector_atom;
+      int NNN = fix->size_vector;
+      std::cout << "Size of fix vector = " << NNN << std::endl;
+      std::cout << "vec[0] = " << fix_vector[0] << std::endl;
+      std::cout << "vec[1] = " << fix_vector[1] << std::endl;      
       double conv_K_to_eV = 8.61732814974056e-5;
       int i = list->ilist[ii];
-      double Te_loc = fix_vector[i] * conv_K_to_eV;
-      evdwl = compute_electronic_temperature_dependent_betazero(Te_loc);
+      std::cout << "i,Te_loc = " << i << "," << Te_loc << " " << std::endl;
+      Te_loc = fix_vector[ii] * conv_K_to_eV;
+      std::cout << "i,Te_loc = " << i << "," << Te_loc << " " << std::endl;
+      //      evdwl = compute_electronic_temperature_dependent_betazero(Te_loc);
 
-      //      std::cout << "evdwl = " << Te_loc << " " << evdwl << std::endl;
       
       // snaptr->copy_bi2bvec();
 
@@ -258,56 +272,67 @@ void PairSNAPTTM::compute(int eflag, int vflag)
    compute beta
 ------------------------------------------------------------------------- */
 
-double* PairSNAPTTM::compute_electronic_temperature_dependent_coeff(double Te_input)
-{
-
-  //  std::cout << "Computing new beta coefficients for telec = " << Te_input << " eV" << std::endl;
-
-  // For now, consider valid only for 1 element SNAP potentials
-  const int ielem=0;
-  double gamma=0.25;
-
-  // Loop over kernel alpha vectors
-  for (int icoeff=0; icoeff<ncoeffall; icoeff++)
-    {
-      double beta_coeff;
-      double kernel_sum=0.;
-      for (int jte=0; jte<ntelec; jte++)
-        {
-          double expterm = exp(-gamma * (Te_input - telec[jte]) * (Te_input - telec[jte]));
-          kernel_sum += (betas[icoeff][jte] * expterm);
-        }
-      
-      beta_coeff = kernel_sum;
-      coeffelem[ielem][icoeff] = beta_coeff;
-    }
-
-  // std::cout << Te_input << " ";
-  // for (int icoeff=0; icoeff<ncoeffall; icoeff++)
-  //   {
-  //     std::cout << coeffelem[ielem][icoeff] << " ";
-  //   }
-  // std::cout << std::endl;
-  
-  return coeffelem[ielem];
-}
-
 double PairSNAPTTM::compute_electronic_temperature_dependent_betazero(double Te_input)
 {
+  double val = 0.0;
+  for (int i = 0; i <= bzero_poly_order; i++) {
+    val = val * Te_input + bzero_poly_coeffs[i];
+  }
+  return val;
+}
 
-  // For now, consider valid only for 1 element SNAP potentials
-  const int ielem=0;
-  double gamma=0.25;
+void PairSNAPTTM::evaluate_electronic_temperature_dependent_betazero(const std::string& csv_path)
+{
+  double min_x = 0.;
+  double max_x = 6.;
+  int M = 10000;
+  
+  // Open CSV and write header + samples
+  std::ofstream ofs(csv_path);
+  if (!ofs) {
+    throw std::runtime_error("Failed to open CSV file: " + csv_path);
+  }
+  ofs << "# Te b0(Te)\n";
+  ofs << std::fixed << std::setprecision(17);
+  
+  // Evenly spaced points, inclusive of both endpoints when M >= 2
+  for (int i = 0; i < M; ++i) {
+    double xi;
+    xi = min_x + (max_x - min_x) * static_cast<double>(i) / static_cast<double>(M - 1);
+    
+    // Horner's method at xi
+    double yi = 0.0;
+    for (int k = 0; k <= bzero_poly_order; ++k) {
+      yi = yi * xi + bzero_poly_coeffs[k];
+    }
+    
+    ofs << xi << " " << yi << "\n";
+  }
+}
 
-  double beta_coeff;
-  double kernel_sum=0.;
-  for (int jte=0; jte<ntelec; jte++)
-    {
-      double expterm = exp(-gamma * (Te_input - telec[jte]) * (Te_input - telec[jte]));
-      kernel_sum += (betas[0][jte] * expterm);
-    }      
-  beta_coeff = kernel_sum;  
-  return beta_coeff;
+void PairSNAPTTM::check_read_betas(const std::string& csv_path)
+{
+
+  // Open CSV and write header + samples
+  std::ofstream ofs(csv_path);
+  if (!ofs) {
+    throw std::runtime_error("Failed to open CSV file: " + csv_path);
+  }
+  ofs << "# Te";
+  for (int i = 0; i<ncoeffall; i++)
+    ofs << " b" << i;
+  ofs << "\n";  
+  
+  ofs << std::fixed << std::setprecision(17);
+
+  for (int i = 0; i<ntelec; i++) {
+    ofs << telec[i] << " ";
+    for (int j = 0; j<ncoeffall; j++) {
+      ofs << betas[j][i] << " ";
+    }
+    ofs << "\n";
+  }
+  
 }
 
 /* ----------------------------------------------------------------------
@@ -319,35 +344,39 @@ void PairSNAPTTM::compute_beta()
   int i;
   int *type = atom->type;
 
+  std::vector<double> coeffivec;
   Fix *fix = modify->fix[ref2index];
   double *fix_vector = modify->fix[ref2index]->vector_atom;
   double conv_K_to_eV = 8.61732814974056e-5;  
   for (int ii = 0; ii < list->inum; ii++) {
     i = list->ilist[ii];
-    double Te_loc = fix_vector[i] * conv_K_to_eV;    
+    double Te_loc = 0.0;//fix_vector[i] * conv_K_to_eV;
+    //    std::cout << "Te_loc = " << Te_loc << std::endl;
     const int itype = type[i];
     const int ielem = map[itype];
-    //    double* coeffi = coeffelem[ielem];
-    double* coeffi = compute_electronic_temperature_dependent_coeff(Te_loc);
-
-    betazero[ii] = coeffi[0];    
+    double* coeffi = coeffelem[ielem];
+    
+    //    double* coeffi = compute_electronic_temperature_dependent_betas(Te_loc);
+    coeffivec = beta_splines_eval_vec(Te_loc);
+    //    std::cout << "Len of coeffivec = " << coeffivec.size() << std::endl;
+    //    betazero[ii] = coeffi[0];    
     for (int icoeff = 0; icoeff < ncoeff; icoeff++)
       beta[ii][icoeff] = coeffi[icoeff+1];
 
-    if (quadraticflag) {
-      int k = ncoeff+1;
-      for (int icoeff = 0; icoeff < ncoeff; icoeff++) {
-        double bveci = bispectrum[ii][icoeff];
-        beta[ii][icoeff] += coeffi[k]*bveci;
-        k++;
-        for (int jcoeff = icoeff+1; jcoeff < ncoeff; jcoeff++) {
-          double bvecj = bispectrum[ii][jcoeff];
-          beta[ii][icoeff] += coeffi[k]*bvecj;
-          beta[ii][jcoeff] += coeffi[k]*bveci;
-          k++;
-        }
-      }
-    }
+    // if (quadraticflag) {
+    //   int k = ncoeff+1;
+    //   for (int icoeff = 0; icoeff < ncoeff; icoeff++) {
+    //     double bveci = bispectrum[ii][icoeff];
+    //     beta[ii][icoeff] += coeffi[k]*bveci;
+    //     k++;
+    //     for (int jcoeff = icoeff+1; jcoeff < ncoeff; jcoeff++) {
+    //       double bvecj = bispectrum[ii][jcoeff];
+    //       beta[ii][icoeff] += coeffi[k]*bvecj;
+    //       beta[ii][jcoeff] += coeffi[k]*bveci;
+    //       k++;
+    //     }
+    //   }
+    // }
   }
 }
 
@@ -494,6 +523,17 @@ void PairSNAPTTM::coeff(int narg, char **arg)
   read_files(arg[2],arg[3]);
   read_betas_files(arg[4]);
 
+  // Check if b0 is correctly evaluated using the polynomial function
+  std::string csv_path = "eval_betazero.csv";
+  evaluate_electronic_temperature_dependent_betazero(csv_path);
+
+  // Check if b1->bN are correctly read
+  csv_path = "eval_betas.csv";
+  check_read_betas(csv_path);
+
+  // Construct the spline evaluations of b1 to b55
+  beta_splines_build();
+  
   if (!quadraticflag)
     ncoeff = ncoeffall - 1;
   else {
@@ -592,12 +632,10 @@ void PairSNAPTTM::read_betas_files(char *alphasfilename)
     if (eof) break;
     MPI_Bcast(line,MAXLINE,MPI_CHAR,0,world);
     // strip comment, skip line if blank
-    
+    std::cout << "line = " << line << std::endl;
     nwords = utils::count_words(utils::trim_comment(line));
   }
-  if (nwords != 2)
-    error->all(FLERR,"Incorrect format in SNAP kernel alphas file");
-
+  
   // // initialize checklist for all required nelements
   // int *elementflags = new int[nelements];
   // for (int jelem = 0; jelem < nelements; jelem++)
@@ -611,134 +649,150 @@ void PairSNAPTTM::read_betas_files(char *alphasfilename)
   }
   if (words.size() != 2)
     error->all(FLERR,"AAAIncorrect format in SNAP kernel alphas file");
-
-  ntelec = utils::numeric(FLERR,words[1],false,lmp);  
+  
+  ntelec = utils::numeric(FLERR,words[1],false,lmp);
+  std::cout <<  "ntelec = " << ntelec << std::endl;
+  
   std::cout <<  "words[0] = " << words[0] << std::endl;
   std::cout <<  "ntelec = " << ntelec << std::endl;  
   std::cout << "Creating betas tabs" << std::endl;
   std::cout << "betas size      = " << ncoeffall << " x " << ntelec << std::endl;
   std::cout << "telec           = " << ntelec << " x " << 1 << std::endl;
   
-  // memory->destroy(betas);
-  // memory->destroy(telec);  
-  // memory->create(betas,ncoeffall,ntelec,"pair:betas");
-  // memory->create(telec,ntelec,"pair:telec");  
+  memory->destroy(telec);  
+  memory->create(telec,ntelec,"pair:telec");  
 
-  // if (comm->me == 0) {
-  //   ptr = fgets(line,MAXLINE,fpalphas);
-  //   if (ptr == nullptr) {
-  //     eof = 1;
-  //     fclose(fpalphas);
-  //   }
-  // }
-  // MPI_Bcast(&eof,1,MPI_INT,0,world);
+  if (comm->me == 0) {
+    ptr = fgets(line,MAXLINE,fpalphas);
+    if (ptr == nullptr) {
+      eof = 1;
+      fclose(fpalphas);
+    }
+  }
+  MPI_Bcast(&eof,1,MPI_INT,0,world);
+  MPI_Bcast(line,MAXLINE,MPI_CHAR,0,world);
 
-  // MPI_Bcast(line,MAXLINE,MPI_CHAR,0,world);
+  nwords = utils::count_words(utils::trim_comment(line));
 
-  // nwords = utils::count_words(utils::trim_comment(line));
-
-  // if (nwords != ntelec)
-  //   error->all(FLERR,"Incorrect format in SNAP kernel alphas file");
-
-  // int nelemtmp = 0;
-  // try {
-  //   ValueTokenizer words(utils::trim_comment(line),"\"' \t\n\r\f");
-  //   for (int l=0; l<ntelec; l++) {
-  //     telec[l] = words.next_double();
-  //   }
-  // } catch (TokenizerException &e) {
-  //   error->all(FLERR,"Incorrect format in SNAP kernel alphas file: {}", e.what());
-  // }
-
-  // std::cout <<  "telec =";
-  // for (int l=0; l<ntelec; l++) {
-  //   std::cout << " " << telec[l];
-  // }  
-  // std::cout << std::endl;
-
-  // //////////////////////////////////////
-  // if (comm->me == 0) {
-  //   ptr = fgets(line,MAXLINE,fpalphas);
-  //   if (ptr == nullptr) {
-  //     eof = 1;
-  //     fclose(fpalphas);
-  //   }
-  // }
-  // MPI_Bcast(&eof,1,MPI_INT,0,world);
-
-  // MPI_Bcast(line,MAXLINE,MPI_CHAR,0,world);
-
-  // nwords = utils::count_words(utils::trim_comment(line));
-  // bzero_poly_order = utils::numeric(FLERR,words[1],false,lmp);
-  // std::cout << "words[0] = " << words[0] << std::endl;
-  // std::cout << "words[1] = " << words[1] << std::endl;    
-  // std::cout << "bzero_poly_order = " << bzero_poly_order << std::endl;  
-
-  // std::abort();
+  if (nwords != ntelec)
+    error->all(FLERR,"Incorrect format in SNAP kernel alphas file");
   
-  // memory->destroy(bzero_poly_coeffs);
-  // memory->create(bzero_poly_coeffs,bzero_poly_order,"pair:bzero_poly_coeffs");
+  int nelemtmp = 0;
+  try {
+    ValueTokenizer words(utils::trim_comment(line),"\"' \t\n\r\f");
+    for (int l=0; l<ntelec; l++) {
+      telec[l] = words.next_double();
+    }
+  } catch (TokenizerException &e) {
+    error->all(FLERR,"Incorrect format in SNAP kernel alphas file: {}", e.what());
+  }
 
-  // if (comm->me == 0) {
-  //   ptr = fgets(line,MAXLINE,fpalphas);
-  //   if (ptr == nullptr) {
-  //     eof = 1;
-  //     fclose(fpalphas);
-  //   }
-  // }
-  // MPI_Bcast(&eof,1,MPI_INT,0,world);
+  std::cout <<  "telec =";
+  for (int l=0; l<ntelec; l++) {
+    std::cout << " " << telec[l];
+  }  
+  std::cout << std::endl;
 
-  // MPI_Bcast(line,MAXLINE,MPI_CHAR,0,world);
-
-  // nwords = utils::count_words(utils::trim_comment(line));
-
-  // if (nwords != bzero_poly_order)
-  //   error->all(FLERR,"Incorrect format in SNAP kernel alphas file");
+  memory->destroy(betas);
+  memory->create(betas,ncoeffall,ntelec,"pair:alphas");
   
-  // try {
-  //   ValueTokenizer words(utils::trim_comment(line),"\"' \t\n\r\f");
-  //   for (int l=0; l<bzero_poly_order; l++) {
-  //     bzero_poly_coeffs[l] = words.next_double();
-  //   }
-  // } catch (TokenizerException &e) {
-  //   error->all(FLERR,"Incorrect format in SNAP kernel alphas file: {}", e.what());
-  // }
+  // End of telec section
+
+  // Start of poly order section
+  if (comm->me == 0) {
+    ptr = fgets(line,MAXLINE,fpalphas);
+    if (ptr == nullptr) {
+      eof = 1;
+      fclose(fpalphas);
+    }
+  }
+  MPI_Bcast(&eof,1,MPI_INT,0,world);
+  MPI_Bcast(line,MAXLINE,MPI_CHAR,0,world);
+
+  try {
+    words = Tokenizer(utils::trim_comment(line),"\"' \t\n\r\f").as_vector();
+  } catch (TokenizerException &) {
+    // ignore
+  }
+
+  bzero_poly_order = utils::numeric(FLERR,words[1],false,lmp);
   
-  // for (int l=0; l<bzero_poly_order; l++) {
-  //   std::cout << "bzero_poly_coeffs[" << l << "] = " << bzero_poly_coeffs[l] << std::endl;  
-  // }
-  // /////////////////////////////////////
-  // std::abort();
+  nwords = utils::count_words(utils::trim_comment(line));
+
+  if (nwords != 2)
+    error->all(FLERR,"Incorrect format in SNAP kernel alphas file");
+
+  memory->destroy(bzero_poly_coeffs);
+  memory->create(bzero_poly_coeffs,bzero_poly_order+1,"pair:bzero_poly_coeffs");
   
-  // for (int icoeff = 0; icoeff < ncoeffall; icoeff++) {
-  //   if (comm->me == 0) {
-  //     ptr = fgets(line,MAXLINE,fpalphas);
-  //     if (ptr == nullptr) {
-	// eof = 1;
-	// fclose(fpalphas);
-  //     }
-  //   }
-  //   MPI_Bcast(&eof,1,MPI_INT,0,world);
-  //   if (eof)
-  //     error->all(FLERR,"AAAIncorrect format in SNAP kernel alphas file");
-  //   MPI_Bcast(line,MAXLINE,MPI_CHAR,0,world);
+  if (comm->me == 0) {
+    ptr = fgets(line,MAXLINE,fpalphas);
+    if (ptr == nullptr) {
+      eof = 1;
+      fclose(fpalphas);
+    }
+  }
+  MPI_Bcast(&eof,1,MPI_INT,0,world);
+
+  MPI_Bcast(line,MAXLINE,MPI_CHAR,0,world);
+
+  try {
+    words = Tokenizer(utils::trim_comment(line),"\"' \t\n\r\f").as_vector();
+  } catch (TokenizerException &) {
+    // ignore
+  }
+  
+  nwords = utils::count_words(utils::trim_comment(line));
+  std::cout << "nwords = " << nwords << std::endl;
+  std::cout << "line   = " << line << std::endl;
+  std::cout << "order  = " << bzero_poly_order << std::endl;
+  
+  if (nwords != bzero_poly_order+1)
+    error->all(FLERR,"Incorrect format in SNAP kernel alphas file");
+  
+  try {
+    ValueTokenizer words(utils::trim_comment(line),"\"' \t\n\r\f");
+    for (int l=0; l<bzero_poly_order+1; l++) {
+      bzero_poly_coeffs[l] = words.next_double();
+    }
+  } catch (TokenizerException &e) {
+    error->all(FLERR,"Incorrect format in SNAP kernel alphas file: {}", e.what());
+  }
+
+  for (int l=0; l<bzero_poly_order+1; l++) {
+    std::cout << "bzero_poly_coeffs[" << l << "] = " << bzero_poly_coeffs[l] << std::endl;  
+  }
+  // End of poly order section
+
+  for (int icoeff = 0; icoeff < ncoeffall; icoeff++) {
+    if (comm->me == 0) {
+      ptr = fgets(line,MAXLINE,fpalphas);
+      if (ptr == nullptr) {
+	eof = 1;
+	fclose(fpalphas);
+      }
+    }
+    MPI_Bcast(&eof,1,MPI_INT,0,world);
+    if (eof)
+      error->all(FLERR,"AAAIncorrect format in SNAP kernel alphas file");
+    MPI_Bcast(line,MAXLINE,MPI_CHAR,0,world);
     
-  //   try {
-  //     words = Tokenizer(utils::trim_comment(line),"\"' \t\n\r\f").as_vector();      
-  //     if (words.size() != ntelec)
-	// error->all(FLERR,"BBBIncorrect format in SNAP coefficient file");
-  //     for (int l=0; l<ntelec; l++){
-  //       betas[icoeff][l] = utils::numeric(FLERR,words[l],false,lmp);
-  //     }
+    try {
+      words = Tokenizer(utils::trim_comment(line),"\"' \t\n\r\f").as_vector();      
+      if (words.size() != ntelec)
+	error->all(FLERR,"BBBIncorrect format in SNAP coefficient file");
+      for (int l=0; l<ntelec; l++){
+        betas[icoeff][l] = utils::numeric(FLERR,words[l],false,lmp);
+      }
       
-  //   } catch (TokenizerException &e) {
-  //     error->all(FLERR,"Incorrect format in SNAP coefficient file: {}", e.what());
-  //   }
+    } catch (TokenizerException &e) {
+      error->all(FLERR,"Incorrect format in SNAP coefficient file: {}", e.what());
+    }
     
-  // }
-  // if (comm->me == 0) fclose(fpalphas);
+  }
+  if (comm->me == 0) fclose(fpalphas);
 
-  std::abort();
+  std::cout << "At this point, the alphas coefficients for the kernel are read!" << std::endl;
 }
 
 void PairSNAPTTM::read_files(char *coefffilename, char *paramfilename)
@@ -1087,32 +1141,223 @@ void *PairSNAPTTM::extract(const char *str, int &dim)
   return nullptr;
 }
 
-void PairSNAPTTM::interpolate(int n, double delta, double *f, double **spline)
+double* PairSNAPTTM::compute_electronic_temperature_dependent_betas(double Te_input)
 {
-  for (int m = 1; m <= n; m++) spline[m][6] = f[m];
-
-  spline[1][5] = spline[2][6] - spline[1][6];
-  spline[2][5] = 0.5 * (spline[3][6]-spline[1][6]);
-  spline[n-1][5] = 0.5 * (spline[n][6]-spline[n-2][6]);
-  spline[n][5] = spline[n][6] - spline[n-1][6];
-
-  for (int m = 3; m <= n-2; m++)
-    spline[m][5] = ((spline[m-2][6]-spline[m+2][6]) +
-                    8.0*(spline[m+1][6]-spline[m-1][6])) / 12.0;
-
-  for (int m = 1; m <= n-1; m++) {
-    spline[m][4] = 3.0*(spline[m+1][6]-spline[m][6]) -
-      2.0*spline[m][5] - spline[m+1][5];
-    spline[m][3] = spline[m][5] + spline[m+1][5] -
-      2.0*(spline[m+1][6]-spline[m][6]);
-  }
-
-  spline[n][4] = 0.0;
-  spline[n][3] = 0.0;
-
-  for (int m = 1; m <= n; m++) {
-    spline[m][2] = spline[m][5]/delta;
-    spline[m][1] = 2.0*spline[m][4]/delta;
-    spline[m][0] = 3.0*spline[m][3]/delta;
-  }
+  
+  double result[ncoeffall];
+  for (int i = 0; i < ncoeffall; ++i) result[i] = 0.0;
+  return result;
 }
+
+
+void PairSNAPTTM::evaluate_electronic_temperature_dependent_betas(const std::string& csv_path)
+{
+  double min_x = 0.;
+  double max_x = 6.;
+  int M = 10000;
+  
+  // Open CSV and write header + samples
+  std::ofstream ofs(csv_path);
+  if (!ofs) {
+    throw std::runtime_error("Failed to open CSV file: " + csv_path);
+  }
+  ofs << "# Te b0(Te)\n";
+  // ofs << "# Te b0(Te)\n";  
+  // ofs << std::fixed << std::setprecision(17);
+  
+  // // Evenly spaced points, inclusive of both endpoints when M >= 2
+  // for (int i = 0; i < M; ++i) {
+  //   double xi;
+  //   xi = min_x + (max_x - min_x) * static_cast<double>(i) / static_cast<double>(M - 1);
+    
+  //   // Horner's method at xi
+  //   double yi = 0.0;
+  //   for (int k = 0; k <= bzero_poly_order; ++k) {
+  //     yi = yi * xi + bzero_poly_coeffs[k];
+  //   }
+    
+  //   ofs << xi << " " << yi << "\n";
+  // }
+}
+
+
+void PairSNAPTTM::factor_tridiagonal_natural(const std::vector<double>& h,
+                                       std::vector<double>& cprime,
+                                       std::vector<double>& denom)
+{
+    const int N = (int)denom.size();
+    // Build the tridiagonal coefficients a, b, c (natural BCs)
+    std::vector<double> a(N, 0.0), b(N, 0.0), c(N, 0.0);
+    b[0] = 1.0;
+    b[N-1] = 1.0;
+    for (int i = 1; i <= N-2; ++i) {
+        a[i] = h[i-1];
+        b[i] = 2.0 * (h[i-1] + h[i]);
+        c[i] = h[i];
+    }
+
+    // Thomas factorization (store modified diagonal in denom and modified superdiag in cprime)
+    cprime[0] = (N > 1) ? c[0] / b[0] : 0.0; // c[0]=0; harmless
+    denom[0]  = b[0];
+    for (int i = 1; i < N; ++i) {
+        denom[i] = b[i] - a[i] * cprime[i-1];
+        cprime[i] = (i == N-1) ? 0.0 : c[i] / denom[i];
+    }
+}
+
+// Solve A*cvec = rhs where A is the natural spline tridiagonal factorized by factor_tridiagonal_natural.
+// Inputs: h (for forward subst sub-diagonal = a[i]=h[i-1]), cprime, denom; rhs is in/out (solution returned there).
+void PairSNAPTTM::solve_tridiagonal_natural(const std::vector<double>& h,
+                               const std::vector<double>& cprime,
+                               const std::vector<double>& denom,
+                               std::vector<double>& rhs)
+{
+    const int N = (int)rhs.size();
+
+    // Forward substitution (using a[i]=h[i-1])
+    std::vector<double> y(N);
+    y[0] = rhs[0] / denom[0];
+    for (int i = 1; i < N; ++i) {
+        y[i] = (rhs[i] - h[i-1] * y[i-1]) / denom[i];
+    }
+
+    // Back substitution
+    rhs[N-1] = y[N-1];
+    for (int i = N - 2; i >= 0; --i) {
+        rhs[i] = y[i] - cprime[i] * rhs[i+1];
+    }
+}
+
+// Compute per-row spline coefficients (a,b,c,d) for all intervals and store into S.coeffs.
+void PairSNAPTTM::build_row_coeffs(const double* y, const std::vector<double>& h,
+                                   const std::vector<double>& cprime,
+                                   const std::vector<double>& denom,
+                                   int N, int row, BetaSplines& S)
+{
+    // RHS for natural spline system
+    std::vector<double> rhs(N, 0.0);
+    rhs[0] = 0.0;
+    rhs[N-1] = 0.0;
+    for (int i = 1; i <= N-2; ++i) {
+        const double slope_next = (y[i+1] - y[i]) / h[i];
+        const double slope_prev = (y[i]   - y[i-1]) / h[i-1];
+        rhs[i] = 3.0 * (slope_next - slope_prev);
+    }
+
+    // Solve for cvec (second-derivative coefficients at knots)
+    solve_tridiagonal_natural(h, cprime, denom, rhs);
+    const std::vector<double>& cvec = rhs;
+
+    // For each interval k: S_k(t) = a + b t + c t^2 + d t^3, t = x - x_k
+    for (int k = 0; k < N - 1; ++k) {
+        const double ak = y[k];
+        const double ck = cvec[k];
+        const double dk = (cvec[k+1] - cvec[k]) / (3.0 * h[k]);
+        const double bk = (y[k+1] - y[k]) / h[k] - (2.0*ck + cvec[k+1]) * h[k] / 3.0;
+
+        const size_t base = (size_t)row * (size_t)(N - 1) * 4 + (size_t)k * 4;
+        S.coeffs[base + 0] = ak; // a
+        S.coeffs[base + 1] = bk; // b
+        S.coeffs[base + 2] = ck; // c
+        S.coeffs[base + 3] = dk; // d
+    }
+}
+
+void PairSNAPTTM::beta_splines_build()
+{
+  int N = ntelec;
+  int M = ncoeffall;
+  if (N < 2) throw std::invalid_argument("beta_splines_build: Need at least 2 knots");
+  if (M < 1) throw std::invalid_argument("beta_splines_build: Need at least 1 row");
+  
+  // Copy knots and validate strict increase
+  BetaSpl.N = N;
+  BetaSpl.M = M;
+  BetaSpl.x.assign(telec, telec + N);
+  BetaSpl.h.resize(N - 1);
+  for (int i = 1; i < N; ++i) {
+    if (!(BetaSpl.x[i] > BetaSpl.x[i-1])) {
+      throw std::invalid_argument("beta_splines_build: telec must be strictly increasing");
+    }
+    BetaSpl.h[i-1] = BetaSpl.x[i] - BetaSpl.x[i-1];
+  }
+
+  // Prepare factorization buffers
+  BetaSpl.cprime.assign(N, 0.0);
+  BetaSpl.denom.assign(N, 0.0);
+  factor_tridiagonal_natural(BetaSpl.h, BetaSpl.cprime, BetaSpl.denom);
+
+  // Allocate coeff storage: M rows × (N-1 intervals) × 4 coefficients
+  BetaSpl.coeffs.assign((size_t)M * (size_t)(N - 1) * 4, 0.0);
+
+  // Compute coefficients row by row
+  for (int row = 0; row < M; ++row) {
+    if (!betas[row]) throw std::invalid_argument("beta_splines_build: betas[row] is null");
+    build_row_coeffs(betas[row], BetaSpl.h, BetaSpl.cprime, BetaSpl.denom, N, row, BetaSpl);
+  }
+  std::cout << "Beta Splines builds is DONE." << std::endl << std::flush;
+
+}
+
+int PairSNAPTTM::beta_splines_find_interval(double x)
+{
+  
+  if (BetaSpl.N < 2) return 0;
+  if (x <= BetaSpl.x.front()) return 0;
+  if (x >= BetaSpl.x.back())  return BetaSpl.N - 2;
+  auto it = std::upper_bound(BetaSpl.x.begin(), BetaSpl.x.end(), x);
+  return int((it - BetaSpl.x.begin()) - 1); // k s.t. x[k] <= x < x[k+1]
+}
+
+void PairSNAPTTM::beta_splines_eval(double x, double* out)
+{
+    if (!out) throw std::invalid_argument("beta_splines_eval: out is null");
+    if (BetaSpl.N < 2 || BetaSpl.M < 1) throw std::invalid_argument("beta_splines_eval: empty cache");
+
+    const int k = beta_splines_find_interval(x);
+    const double t = x - BetaSpl.x[k];
+
+    // Evaluate each row on interval k: (((d*t)+c)*t + b)*t + a
+    const size_t row_stride = (size_t)(BetaSpl.N - 1) * 4;
+    const size_t base_k = (size_t)k * 4;
+    for (int row = 0; row < BetaSpl.M; ++row) {
+        const size_t base = (size_t)row * row_stride + base_k;
+        const double a = BetaSpl.coeffs[base + 0];
+        const double b = BetaSpl.coeffs[base + 1];
+        const double c = BetaSpl.coeffs[base + 2];
+        const double d = BetaSpl.coeffs[base + 3];
+        out[row] = ((d * t + c) * t + b) * t + a;
+    }
+}
+
+std::vector<double> PairSNAPTTM::beta_splines_eval_vec(double x)
+{
+    std::vector<double> out(BetaSpl.M);
+    beta_splines_eval(x, out.data());
+    return out;
+}
+
+// void PairSNAPTTM::beta_splines_eval_many(const BetaSplines& S, const double* xs, int K, double* out)
+// {
+//     if (!xs || !out) throw std::invalid_argument("beta_splines_eval_many: null pointer");
+//     if (K < 0) throw std::invalid_argument("beta_splines_eval_many: negative K");
+//     if (S.N < 2 || S.M < 1) throw std::invalid_argument("beta_splines_eval_many: empty cache");
+
+//     const size_t row_stride = (size_t)(S.N - 1) * 4;
+
+//     for (int q = 0; q < K; ++q) {
+//         const double x = xs[q];
+//         const int k = beta_splines_find_interval(S, x);
+//         const double t = x - S.x[k];
+//         const size_t base_k = (size_t)k * 4;
+
+//         for (int row = 0; row < S.M; ++row) {
+//             const size_t base = (size_t)row * row_stride + base_k;
+//             const double a = S.coeffs[base + 0];
+//             const double b = S.coeffs[base + 1];
+//             const double c = S.coeffs[base + 2];
+//             const double d = S.coeffs[base + 3];
+//             out[(size_t)q * (size_t)S.M + (size_t)row] = ((d * t + c) * t + b) * t + a;
+//         }
+//     }
+// }

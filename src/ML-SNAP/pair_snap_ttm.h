@@ -36,8 +36,8 @@ class PairSNAPTTM : public Pair {
   double memory_usage() override;
   void *extract(const char *, int &) override;
 
-  double rcutfac, quadraticflag;    // declared public to workaround gcc 4.9
-  int ncoeff;                       //  compiler bug, manifest in KOKKOS package
+  double rcutfac;
+  int quadraticflag, ncoeff;
 
  protected:
   int whichref, indexref, ref2index;
@@ -45,6 +45,7 @@ class PairSNAPTTM : public Pair {
   
   int ncoeffq, ncoeffall;
   int ntelec;
+
   class SNA *snaptr;
   virtual void allocate();
   void read_files(char *, char *);
@@ -53,17 +54,60 @@ class PairSNAPTTM : public Pair {
   inline double dist2(double *x, double *y);
 
   void compute_beta();
-  double* compute_electronic_temperature_dependent_coeff(double Te_input);
-  double compute_electronic_temperature_dependent_betazero(double Te_input);
   void compute_bispectrum();
-  void interpolate(int, double, double *, double **);
+  
+  double compute_electronic_temperature_dependent_betazero(double Te_input);
+  void evaluate_electronic_temperature_dependent_betazero(const std::string& csv_path);
+  void check_read_betas(const std::string& csv_path);
 
+  // Cache holding all precomputed spline data.
+  // Layout: for each row (0..M-1) and each interval k (0..N-2), we store 4 coeffs (a,b,c,d).
+  // Access pattern: coeffs[(row*(N-1) + k)*4 + {0..3}]
+  struct BetaSplines {
+    int N = 0;                 // number of knots
+    int M = 0;                 // number of rows
+    std::vector<double> x;     // telec[0..N-1]
+    std::vector<double> h;     // h[k] = x[k+1]-x[k], size N-1
+
+    // Thomas factorization terms of the tridiagonal that depends only on x/h (natural BC):
+    // denom[i] = modified diagonal, cprime[i] = modified superdiag for fast solves per row.
+    std::vector<double> cprime; // size N
+    std::vector<double> denom;  // size N
+
+    // Precomputed per-interval cubic coefficients for every row: a,b,c,d
+    std::vector<double> coeffs; // size M*(N-1)*4
+  } BetaSpl;
+
+  // Build the cache from telec (size N, strictly increasing, non-uniform OK) and betas (M x N).
+  // betas[i] must point to an array of length N: betas[i][j] = beta_i(telec[j]).
+  // Throws std::invalid_argument on input errors.
+  void beta_splines_build();
+
+  // Evaluate at a single x. Writes M values to out[0..M-1].
+  void beta_splines_eval(double x, double* out);
+
+  // Convenience wrapper that returns a std::vector<double>(M) for a single x.
+  std::vector<double> beta_splines_eval_vec(double x);
+
+  // Evaluate many x’s (xs[0..K-1]). Writes into out with row-major [q*M + i] = beta_i(xs[q]).
+  //  void beta_splines_eval_many(const BetaSplines& S, const double* xs, int K, double* out);
+
+  // Utility: find interval index k with clamped extrapolation (0..N-2).
+  int beta_splines_find_interval(double x);
+
+  void factor_tridiagonal_natural(const std::vector<double>&, std::vector<double>&, std::vector<double>&);
+  void solve_tridiagonal_natural(const std::vector<double>&, const std::vector<double>& cprime, const std::vector<double>&, std::vector<double>&);
+
+  void build_row_coeffs(const double*, const std::vector<double>&,const std::vector<double>&,const std::vector<double>&,int, int, BetaSplines&);
+  void evaluate_electronic_temperature_dependent_betas(const std::string& csv_path);  
+  double* compute_electronic_temperature_dependent_betas(double Te_input);
+  
   double Te_input;  
   double rcutmax;         // max cutoff for all elements
   double *radelem;        // element radii
   double *wjelem;         // elements weights
   double **coeffelem;     // element bispectrum coefficients
-  double **betas;        // kernel alphas  
+  double **betas;         // kernel alphas  
   double *telec;          // list of electronic temperature
   double **beta;          // betas for all atoms in list
   double *betazero;       // beta_zero for all atoms in list

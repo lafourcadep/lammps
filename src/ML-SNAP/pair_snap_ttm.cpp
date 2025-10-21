@@ -127,6 +127,10 @@ void PairSNAPTTM::compute(int eflag, int vflag)
   numneigh = list->numneigh;
   firstneigh = list->firstneigh;
 
+  Fix *fix = modify->get_fix_by_id(idref);
+  double *fix_vector = fix->vector_atom;
+  double conv_K_to_eV = 8.61732814974056e-5;
+  
   for (int ii = 0; ii < list->inum; ii++) {
     i = list->ilist[ii];
 
@@ -221,20 +225,9 @@ void PairSNAPTTM::compute(int eflag, int vflag)
       // evdwl = energy of atom I, sum over coeffs_k * Bi_k
       double* coeffi = beta[ii];
       //      double* coeffi = coeffelem[ielem];
-      //      Fix *fix = modify->fix[ref2index];
-      Fix *fix = modify->get_fix_by_id(idref);
-      double *fix_vector = fix->vector_atom;
-      int NNN = fix->size_vector;
-      std::cout << "Size of fix vector = " << NNN << std::endl;
-      std::cout << "vec[0] = " << fix_vector[0] << std::endl;
-      std::cout << "vec[1] = " << fix_vector[1] << std::endl;      
-      double conv_K_to_eV = 8.61732814974056e-5;
       int i = list->ilist[ii];
-      std::cout << "i,Te_loc = " << i << "," << Te_loc << " " << std::endl;
-      Te_loc = fix_vector[ii] * conv_K_to_eV;
-      std::cout << "i,Te_loc = " << i << "," << Te_loc << " " << std::endl;
-      //      evdwl = compute_electronic_temperature_dependent_betazero(Te_loc);
-
+      Te_loc = fix_vector[i] * conv_K_to_eV;
+      evdwl = compute_electronic_temperature_dependent_betazero(Te_loc);
       
       // snaptr->copy_bi2bvec();
 
@@ -345,21 +338,17 @@ void PairSNAPTTM::compute_beta()
   int *type = atom->type;
 
   std::vector<double> coeffivec;
-  Fix *fix = modify->fix[ref2index];
-  double *fix_vector = modify->fix[ref2index]->vector_atom;
+  Fix *fix = modify->get_fix_by_id(idref);
+  double *fix_vector = fix->vector_atom;
   double conv_K_to_eV = 8.61732814974056e-5;  
   for (int ii = 0; ii < list->inum; ii++) {
     i = list->ilist[ii];
-    double Te_loc = 0.0;//fix_vector[i] * conv_K_to_eV;
-    //    std::cout << "Te_loc = " << Te_loc << std::endl;
+    double Te_loc = fix_vector[i] * conv_K_to_eV;
     const int itype = type[i];
     const int ielem = map[itype];
     double* coeffi = coeffelem[ielem];
-    
     //    double* coeffi = compute_electronic_temperature_dependent_betas(Te_loc);
     coeffivec = beta_splines_eval_vec(Te_loc);
-    //    std::cout << "Len of coeffivec = " << coeffivec.size() << std::endl;
-    //    betazero[ii] = coeffi[0];    
     for (int icoeff = 0; icoeff < ncoeff; icoeff++)
       beta[ii][icoeff] = coeffi[icoeff+1];
 
@@ -523,6 +512,8 @@ void PairSNAPTTM::coeff(int narg, char **arg)
   read_files(arg[2],arg[3]);
   read_betas_files(arg[4]);
 
+  //  std::abort();
+  
   // Check if b0 is correctly evaluated using the polynomial function
   std::string csv_path = "eval_betazero.csv";
   evaluate_electronic_temperature_dependent_betazero(csv_path);

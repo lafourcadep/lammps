@@ -51,12 +51,15 @@ static constexpr double SHIFT = 0.0;
 FixTTM::FixTTM(LAMMPS *lmp, int narg, char **arg) :
   Fix(lmp, narg, arg),
   random(nullptr),
-  gfactor1(nullptr), gfactor2(nullptr), ratio(nullptr), flangevin(nullptr),
+  gfactor1(nullptr), gfactor2(nullptr), ratio(nullptr), flangevin(nullptr), telec(nullptr),
   T_electron(nullptr), T_electron_old(nullptr),
   net_energy_transfer(nullptr), net_energy_transfer_all(nullptr)
 {
   if (narg < 13) error->all(FLERR,"Illegal fix ttm command");
 
+  peratom_flag = 1;
+  size_peratom_cols = 0;
+  nevery = 1;
   vector_flag = 1;
   size_vector = 2;
   global_freq = 1;
@@ -140,6 +143,7 @@ FixTTM::FixTTM(LAMMPS *lmp, int narg, char **arg) :
 
   // allocate per-atom flangevin and zero it
 
+  telec = nullptr;
   flangevin = nullptr;
   FixTTM::grow_arrays(atom->nmax);
 
@@ -147,7 +151,10 @@ FixTTM::FixTTM(LAMMPS *lmp, int narg, char **arg) :
     flangevin[i][0] = 0.0;
     flangevin[i][1] = 0.0;
     flangevin[i][2] = 0.0;
+    telec[i] = 0.0;
   }
+  
+  vector_atom = telec;
 
   // set 2 callbacks
 
@@ -172,6 +179,7 @@ FixTTM::~FixTTM()
   delete[] gfactor2;
 
   memory->destroy(flangevin);
+  memory->destroy(telec);
 
   if (!deallocate_flag) FixTTM::deallocate_grid();
 }
@@ -193,6 +201,11 @@ void FixTTM::post_constructor()
       for (ix = 0; ix < nxgrid; ix++)
         T_electron[iz][iy][ix] = tinit;
 
+  for (int i = 0; i < atom->nmax; i++) {
+    telec[i] = 0.0;
+  }
+  vector_atom = telec;
+  
   // zero net_energy_transfer_all
   // in case compute_vector accesses it on timestep 0
 
@@ -317,11 +330,13 @@ void FixTTM::post_force(int /*vflag*/)
       flangevin[i][1] = gamma1*v[i][1] + gamma2*(random->uniform()-0.5);
       flangevin[i][2] = gamma1*v[i][2] + gamma2*(random->uniform()-0.5);
 
+      telec[i] = T_electron[iz][iy][ix];
       f[i][0] += flangevin[i][0];
       f[i][1] += flangevin[i][1];
       f[i][2] += flangevin[i][2];
     }
   }
+  vector_atom = telec;  
 }
 
 /* ---------------------------------------------------------------------- */
@@ -551,6 +566,7 @@ void FixTTM::reset_dt()
 void FixTTM::grow_arrays(int ngrow)
 {
   memory->grow(flangevin,ngrow,3,"ttm:flangevin");
+  memory->grow(telec,ngrow,"ttm:telec");
 }
 
 /* ----------------------------------------------------------------------

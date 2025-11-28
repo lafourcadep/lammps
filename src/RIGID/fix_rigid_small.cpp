@@ -438,13 +438,13 @@ FixRigidSmall::FixRigidSmall(LAMMPS *lmp, int narg, char **arg) :
 
   // print statistics
 
-  int one = 0;
+  bigint one = 0;
   bigint atomone = 0;
   for (i = 0; i < nlocal; i++) {
     if (bodyown[i] >= 0) one++;
     if (bodytag[i] > 0) atomone++;
   }
-  MPI_Allreduce(&one,&nbody,1,MPI_INT,MPI_SUM,world);
+  MPI_Allreduce(&one,&nbody,1,MPI_LMP_BIGINT,MPI_SUM,world);
   bigint atomall;
   MPI_Allreduce(&atomone,&atomall,1,MPI_LMP_BIGINT,MPI_SUM,world);
 
@@ -627,7 +627,6 @@ void FixRigidSmall::setup(int vflag)
   if (maxextent > cutghost)
     error->all(FLERR,"Rigid body extent {} > ghost atom cutoff - use comm_modify cutoff", maxextent);
 
-  if (langflag) apply_langevin_thermostat();
   compute_forces_and_torques();
 
   // enforce 2d body forces and torques

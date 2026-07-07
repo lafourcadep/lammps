@@ -28,7 +28,7 @@ static constexpr int EXTRA = 1000;
 
 /* ---------------------------------------------------------------------- */
 
-BondHybrid::BondHybrid(LAMMPS *lmp) : Bond(lmp)
+BondHybrid::BondHybrid(LAMMPS *lmp) : Bond(lmp), styles(nullptr), keywords(nullptr), map(nullptr)
 {
   writedata = 0;
   nstyles = 0;
@@ -469,7 +469,7 @@ void BondHybrid::copy_svector(int type)
   // there is only one style in bond style hybrid for a bond type
   Bond *this_style = styles[map[type]];
 
-  for (int l = 0; this_style->single_extra; ++l) { svector[l] = this_style->svector[l]; }
+  for (int l = 0; l < this_style->single_extra; ++l) { svector[l] = this_style->svector[l]; }
 }
 
 /* ----------------------------------------------------------------------

@@ -38,7 +38,7 @@ using namespace FixConst;
 enum { NONE, CONSTANT };
 
 static const char cite_rheo_oxide[] =
-    "RHEO oxidation: doi:10.1016/j.apm.2024.02.027\n\n"
+    "RHEO oxidation: https://doi.org/10.1016/j.apm.2024.02.027\n\n"
     "@article{ApplMathModel.130.310,\n"
     " title = {A hybrid smoothed-particle hydrodynamics model of oxide skins on molten aluminum},\n"
     " journal = {Applied Mathematical Modelling},\n"
@@ -54,7 +54,7 @@ static const char cite_rheo_oxide[] =
 /* ---------------------------------------------------------------------- */
 
 FixRHEOOxidation::FixRHEOOxidation(LAMMPS *lmp, int narg, char **arg) :
-    Fix(lmp, narg, arg), compute_surface(nullptr), fix_rheo(nullptr)
+    Fix(lmp, narg, arg), list(nullptr), compute_surface(nullptr), fix_rheo(nullptr)
 {
   if (narg != 6) error->all(FLERR, "Illegal fix rheo/oxidation command");
 

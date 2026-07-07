@@ -39,6 +39,8 @@ class PairLJCutCoulLongKokkos : public PairLJCutCoulLong {
   PairLJCutCoulLongKokkos(class LAMMPS *);
   ~PairLJCutCoulLongKokkos() override;
 
+  class TuneKokkos* tuner;
+
   void compute(int, int) override;
 
   void init_tables(double cut_coul, double *cut_respa) override;
@@ -47,21 +49,25 @@ class PairLJCutCoulLongKokkos : public PairLJCutCoulLong {
 
  protected:
   template<bool STACKPARAMS, class Specialisation>
+// NOLINTNEXTLINE
   KOKKOS_INLINE_FUNCTION
   KK_FLOAT compute_fpair(const KK_FLOAT& rsq, const int& i, const int&j,
                         const int& itype, const int& jtype) const;
 
   template<bool STACKPARAMS, class Specialisation>
+// NOLINTNEXTLINE
   KOKKOS_INLINE_FUNCTION
   KK_FLOAT compute_fcoul(const KK_FLOAT& rsq, const int& i, const int&j, const int& itype,
                         const int& jtype, const KK_FLOAT& factor_coul, const KK_FLOAT& qtmp) const;
 
   template<bool STACKPARAMS, class Specialisation>
+// NOLINTNEXTLINE
   KOKKOS_INLINE_FUNCTION
   KK_FLOAT compute_evdwl(const KK_FLOAT& rsq, const int& i, const int&j,
                         const int& itype, const int& jtype) const;
 
   template<bool STACKPARAMS, class Specialisation>
+// NOLINTNEXTLINE
   KOKKOS_INLINE_FUNCTION
   KK_FLOAT compute_ecoul(const KK_FLOAT& rsq, const int& i, const int&j,
                         const int& itype, const int& jtype, const KK_FLOAT& factor_coul, const KK_FLOAT& qtmp) const;
@@ -104,6 +110,8 @@ class PairLJCutCoulLongKokkos : public PairLJCutCoulLong {
   KK_FLOAT special_coul[4];
   KK_FLOAT special_lj[4];
   KK_FLOAT qqrd2e;
+  KK_FLOAT g_ewald_kk;
+  KK_FLOAT tabinnersq_kk;
 
   void allocate() override;
   friend struct PairComputeFunctor<PairLJCutCoulLongKokkos,FULL,true,0,CoulLongTable<1>>;

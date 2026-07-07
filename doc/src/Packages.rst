@@ -84,8 +84,8 @@ whether an extra library is needed to build and use the package:
      - ellipse
      - no
    * - :ref:`BOCS <PKG-BOCS>`
-     - BOCS bottom up coarse graining
-     - :doc:`fix bocs <fix_bocs>`
+     - BOCS bottom up coarse graining and Local Density Dependent potentials
+     - :doc:`fix bocs <fix_bocs>`, :doc:`pair_ldd <pair_ldd>`, :doc:`LDD Howto <Howto_ldd>`
      - ``PACKAGES/bocs``
      - no
    * - :ref:`BODY <PKG-BODY>`
@@ -233,13 +233,23 @@ whether an extra library is needed to build and use the package:
      - :doc:`Howto granular <Howto_granular>`
      - pour
      - no
+   * - :ref:`GRANSURF <PKG-GRANSURF>`
+     - surfaces for granular systems
+     - :doc:`Howto granular surfaces <Howto_granular_surfaces>`
+     - gransurf
+     - no
+   * - :ref:`GRAPHICS <PKG-GRAPHICS>`
+     - generate graphics output
+     - :doc:`Howto_viz`
+     - n/a
+     - no
    * - :ref:`H5MD <PKG-H5MD>`
      - dump output via HDF5
      - :doc:`dump h5md <dump_h5md>`
      - n/a
      - ext
    * - :ref:`INTEL <PKG-INTEL>`
-     - optimized Intel CPU and KNL styles
+     - optimized Intel CPU styles
      - :doc:`Speed intel <Speed_intel>`
      - `Benchmarks <https://www.lammps.org/bench.html>`_
      - no
@@ -288,6 +298,11 @@ whether an extra library is needed to build and use the package:
      - :doc:`pair_style tersoff <pair_tersoff>`
      - shear
      - no
+   * - :ref:`MBX <PKG-MBX>`
+     - `MBX MB-nrg potential library <https://mbxsimulations.com/>`_
+     - :doc:`pair_mbx <pair_mbx>`
+     - ``PACKAGES/mbx``
+     - no
    * - :ref:`MC <PKG-MC>`
      - Monte Carlo options
      - :doc:`fix gcmc <fix_gcmc>`
@@ -322,6 +337,11 @@ whether an extra library is needed to build and use the package:
      - High-dimensional neural network potentials
      - :doc:`pair_style hdnnp <pair_hdnnp>`
      - ``PACKAGES/hdnnp``
+     - ext
+   * - :ref:`ML-RUNNER <PKG-ML-RUNNER>`
+     - Second-, third-, and fourth-generation high-dimensional neural network potentials
+     - :doc:`pair_style runner <pair_runner>`
+     - ``PACKAGES/runner``
      - ext
    * - :ref:`ML-IAP <PKG-ML-IAP>`
      - multiple machine learning potentials

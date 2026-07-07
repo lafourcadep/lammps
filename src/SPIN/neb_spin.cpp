@@ -49,7 +49,7 @@
 using namespace LAMMPS_NS;
 
 static const char cite_neb_spin[] =
-  "neb/spin command: doi:10.1016/j.cpc.2015.07.001\n\n"
+  "neb/spin command: https://doi.org/10.1016/j.cpc.2015.07.001\n\n"
   "@article{bessarab2015method,\n"
   "title={Method for Finding Mechanism and Activation Energy of\n"
   "  Magnetic Transitions, Applied to Skyrmion and Antivortex\n"
@@ -71,7 +71,10 @@ static constexpr int ATTRIBUTE_PERLINE = 8;
 
 /* ---------------------------------------------------------------------- */
 
-NEBSpin::NEBSpin(LAMMPS *lmp) : Command(lmp), fp(nullptr) {
+NEBSpin::NEBSpin(LAMMPS *lmp) :
+    Command(lmp), fp(nullptr), inpfile(nullptr), fneb(nullptr), all(nullptr), rdist(nullptr),
+    freplica(nullptr), fmaxatomInRepl(nullptr)
+{
   if (lmp->citeme) lmp->citeme->add(cite_neb_spin);
 }
 

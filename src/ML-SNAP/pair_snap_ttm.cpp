@@ -515,11 +515,11 @@ void PairSNAPTTM::coeff(int narg, char **arg)
   //  std::abort();
   
   // Check if b0 is correctly evaluated using the polynomial function
-  std::string csv_path = "eval_betazero.csv";
+  std::string csv_path = "dir.inputs/eval_betazero.csv";
   evaluate_electronic_temperature_dependent_betazero(csv_path);
 
   // Check if b1->bN are correctly read
-  csv_path = "eval_betas.csv";
+  csv_path = "dir.inputs/eval_betas.csv";
   check_read_betas(csv_path);
 
   // Construct the spline evaluations of b1 to b55

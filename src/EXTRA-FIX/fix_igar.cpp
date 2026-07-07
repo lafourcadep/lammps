@@ -70,7 +70,7 @@ FixIGAR::FixIGAR(LAMMPS *lmp, int narg, char **arg) :
   global_freq = 1;  
   extscalar = 1;  
 
-  kIm = utils::numeric(FLERR,arg[3],false,lmp);
+  kIm = utils::numeric(FLERR,arg[3],false,lmp)/255.;
   std::cout << "kIm = " << kIm << std::endl;
   
   nxgrid = utils::inumeric(FLERR,arg[4],false,lmp);
@@ -536,16 +536,16 @@ void FixIGAR::read_igar_energies(const std::string &filename)
 
       while (nread < ngridtotal) {
         // reader will skip over comment-only lines
-        auto values = reader.next_values(4);
+        auto values = reader.next_values(2);
         ++nread;
 
-        int ix = values.next_int();// - 1;
-        int iy = values.next_int();// - 1;
-        int iz = values.next_int();// - 1;
-        double U_igar_tmp  = values.next_double();
-
-        // check correctness of input data
-
+        int global_idx = values.next_int();
+        int U_igar_tmp = values.next_int();
+        // Recover ix, iy, iz from global index
+        int ix = global_idx / (nygrid * nzgrid);
+        int iy = (global_idx / nzgrid) % nygrid;
+        int iz = global_idx % nzgrid;
+        
         if ((ix < 0) || (ix >= nxgrid) || (iy < 0) || (iy >= nygrid) || (iz < 0) || (iz >= nzgrid))
           throw TokenizerException("Fix igar invalid grid index in fix igar grid file","");
 

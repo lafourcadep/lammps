@@ -71,12 +71,12 @@ class FixIGAR : public Fix {
   double gamma_p, gamma_s, v_0, v_0_sq;
 
   double *gfactor1, *gfactor2, *ratio, **figar, *eigar;
-  double ***U_igar, ***U_igar_old;
+  int ***U_igar, ***U_igar_old;
   double ***igar_energy_transfer, ***igar_energy_transfer_all;
-  double ***T_atomic;
-  int ***nsum, ***nsum_all;
-  double ***sum_vsq, ***sum_vsq_all;
-  double ***sum_mass_vsq, ***sum_mass_vsq_all;
+  //  double ***T_atomic;
+  //  int ***nsum, ***nsum_all;
+  //  double ***sum_vsq, ***sum_vsq_all;
+  //  double ***sum_mass_vsq, ***sum_mass_vsq_all;
 
   virtual void allocate_grid();
   virtual void deallocate_grid();

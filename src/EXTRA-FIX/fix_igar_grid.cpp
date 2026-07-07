@@ -512,24 +512,21 @@ int FixIGARGrid::unpack_read_grid(int /*nlines*/, char *buffer)
       ValueTokenizer values(utils::trim_comment(line));
       if (values.count() == 0) {
         ;    // ignore comment only or blank lines
-      } else if (values.count() == 4) {
+      } else if (values.count() == 2) {
         ++nread;
-
-        int ix = values.next_int();
-        int iy = values.next_int();
-        int iz = values.next_int();
-        // int ix = values.next_int() - 1;
-        // int iy = values.next_int() - 1;
-        // int iz = values.next_int() - 1;
-
-        //        std::cout << "ix,iy,iz = " << ix << " " << iy << " " << iz << std::endl;
         
+        // Recover ix, iy, iz from global index
+        int global_idx = values.next_int();
+        int ix = global_idx / (nygrid * nzgrid);
+        int iy = (global_idx / nzgrid) % nygrid;
+        int iz = global_idx % nzgrid;
+
         if (ix < 0 || ix >= nxgrid || iy < 0 || iy >= nygrid || iz < 0 || iz >= nzgrid)
           throw TokenizerException("Fix igar/grid invalid grid index in input", "");
 
         if (ix >= nxlo_in && ix <= nxhi_in && iy >= nylo_in && iy <= nyhi_in && iz >= nzlo_in &&
             iz <= nzhi_in) {
-          U_igar[iz][iy][ix] = values.next_double();
+          U_igar[iz][iy][ix] = values.next_int();
           U_igar_read[iz][iy][ix] = 1;
         }
       } else {
@@ -755,7 +752,7 @@ void FixIGARGrid::pack_forward_grid(int /*which*/, void *vbuf, int nlist, int *l
 {
 
   auto buf = (double *) vbuf;
-  double *src = &U_igar[nzlo_out][nylo_out][nxlo_out];
+  int *src = &U_igar[nzlo_out][nylo_out][nxlo_out];
 
   for (int i = 0; i < nlist; i++) buf[i] = src[list[i]];
 
@@ -769,7 +766,7 @@ void FixIGARGrid::unpack_forward_grid(int /*which*/, void *vbuf, int nlist, int 
 {
 
   auto buf = (double *) vbuf;
-  double *dest = &U_igar[nzlo_out][nylo_out][nxlo_out];
+  int *dest = &U_igar[nzlo_out][nylo_out][nxlo_out];
 
   for (int i = 0; i < nlist; i++) dest[list[i]] = buf[i];
 
@@ -815,7 +812,7 @@ void FixIGARGrid::pack_remap_grid(int /*which*/, void *vbuf, int nlist, int *lis
 {
   
   auto buf = (double *) vbuf;
-  double *src =
+  int *src =
     &U_igar_previous[nzlo_out_previous][nylo_out_previous][nxlo_out_previous];
 
   for (int i = 0; i < nlist; i++) buf[i] = src[list[i]];
@@ -832,7 +829,7 @@ void FixIGARGrid::unpack_remap_grid(int /*which*/, void *vbuf, int nlist, int *l
 
   
   auto buf = (double *) vbuf;
-  double *dest = &U_igar[nzlo_out][nylo_out][nxlo_out];
+  int *dest = &U_igar[nzlo_out][nylo_out][nxlo_out];
 
   for (int i = 0; i < nlist; i++) dest[list[i]] = buf[i];
 

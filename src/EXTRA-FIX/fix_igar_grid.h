@@ -70,11 +70,11 @@ class FixIGARGrid : public FixIGAR {
 
   class Grid3d *grid;
   class Grid3d *grid_previous;
-  double ***U_igar_previous;
+  int ***U_igar_previous;
   int ngrid_buf1, ngrid_buf2;
   double *grid_buf1, *grid_buf2;
 
-  double ***U_igar_read;
+  int ***U_igar_read;
   int nxlo_out_previous,nylo_out_previous,nzlo_out_previous;
 
   void allocate_grid() override;

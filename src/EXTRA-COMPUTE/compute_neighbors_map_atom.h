@@ -11,10 +11,6 @@
    See the README file in the top-level LAMMPS directory.
 ------------------------------------------------------------------------- */
 
-/* ----------------------------------------------------------------------
-   Contributing author: Paul Lafourcade (CEA-DAM-DIF, Arpajon, France)
-------------------------------------------------------------------------- */
-
 #ifdef COMPUTE_CLASS
 // clang-format off
 ComputeStyle(neighborsmap/atom,ComputeNeighborsMapAtom);
@@ -26,6 +22,9 @@ ComputeStyle(neighborsmap/atom,ComputeNeighborsMapAtom);
 
 #include "compute.h"
 
+#include <cstdint>
+#include <vector>
+
 namespace LAMMPS_NS {
 
 class ComputeNeighborsMapAtom : public Compute {
@@ -35,20 +34,48 @@ class ComputeNeighborsMapAtom : public Compute {
   void init() override;
   void init_list(int, class NeighList *) override;
   void compute_peratom() override;
-  //  double memory_usage() override;
+  double memory_usage() override;
 
  private:
-  int nmax, maxneigh, nnn, ncol;
-  double *distsq;
-  int *nearest;
+  int nmax;
   class NeighList *list;
-  int nm_target_imsize;
-  double nm_rcut;
-  double nm_gamma_decay;
-  double nm_beta_att;
-  double **nm_flattened_image;
-  void select2(int, int, double *, int *);
-  void selection_sort_dist_idx(std::vector<double>&, std::vector<int>&);
+
+  // core hyperparameters (positional args): rcut, target_img_size, gamma, beta
+  int target_img_size;
+  double rcut;
+  double gamma;
+  double beta;
+
+  // envelope keywords (from raynol)
+  int envelope;    // 0 = standard (paper) envelope, 1 = DimeNet envelope
+  double decay;    // rank-based decay strength, 0 = disabled
+  int sortrows;    // 1 = sort rows by decreasing sum
+
+  // type filter / weight keywords (from eliott)
+  uint32_t type_mask;
+  int *type_bit;
+  double *type_weight;
+
+  double **flattened_image;
+
+  struct Node {
+    double r2 = 0.0;
+    int idx = 0;
+    int type = 0;
+  };
+
+  struct NodeLess {
+    inline bool operator()(const Node &a, const Node &b) const noexcept { return a.r2 < b.r2; }
+  };
+
+  void inplace_selection_sort(std::vector<double> &, std::vector<int> &, int);
+  void apply_standard_envelope(std::vector<std::vector<double>> &, double, double);
+  void dimenet_envelope(std::vector<double> &x, double);
+  void apply_dimenet_envelope(std::vector<std::vector<double>> &, double, double, double);
+  void apply_decay_envelope(std::vector<std::vector<double>> &, int, double);
+  void sort_rows_by_decreasing_sum(std::vector<std::vector<double>> &, int);
+  void apply_type_weights(std::vector<std::vector<double>> &, const std::vector<int> &row_type,
+                           const std::vector<std::vector<int>> &col_type);
 };
 
 }    // namespace LAMMPS_NS

@@ -36,12 +36,14 @@ Description
 .. versionadded:: 29Aug2024
 
 Download a file from an URL to the local disk. This is implemented with
-the `libcurl library <https:://curl.se/libcurl/>`_ which supports a
+the `libcurl library <https://curl.se/libcurl/>`_ which supports a
 large variety of protocols including "http", "https", "ftp", "scp",
 "sftp", "file".  The transfer will only be performed on MPI rank 0.
 
-The *output* keyword can be used to set the filename. By default, the last part
-of the URL is used.
+.. versionchanged:: TBD
+
+The *output* keyword can be used to set the filename.  By default, the string
+after the last '/' is used or 'index.html'.
 
 The *overwrite* keyword determines whether a file should be overwritten if it
 already exists.  If the argument is *no*, then the download will be skipped
@@ -69,7 +71,7 @@ failure.
 .. admonition:: Using *geturl* with proxies for http or https
    :class: note
 
-   The `libcurl library <https:://curl.se/libcurl/>`_ supports `routing
+   The `libcurl library <https://curl.se/libcurl/>`_ supports `routing
    traffic through proxies
    <https://everything.curl.dev/usingcurl/proxies/env.html>`_ by setting
    suitable environment variables (e.g. ``http_proxy`` or

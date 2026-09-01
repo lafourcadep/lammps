@@ -41,6 +41,7 @@
 #include "neighbor.h"
 #include "pair.h"
 #include "random_park.h"
+#include "suffix.h"
 #include "update.h"
 #include "variable.h"
 
@@ -55,7 +56,7 @@ using namespace MathConst;
 using namespace MathSpecial;
 
 static const char cite_fix_charge_regulation[] =
-  "fix charge/regulation: doi:10.1063/5.0066432\n\n"
+  "fix charge/regulation: https://doi.org/10.1063/5.0066432\n\n"
   "@Article{Curk22,\n"
   " author = {T. Curk and J. Yuan and E. Luijten},\n"
   " title = {Accelerated Simulation Method for Charge Regulation Effects},\n"
@@ -197,9 +198,11 @@ void FixChargeRegulation::init() {
     error->warning(FLERR, "Fix charge/regulation will use per atom type masses for "
                    "velocity initialization");
 
+  if (force->pair && (force->pair->suffix_flag & Suffix::INTEL))
+    error->all(FLERR, Error::NOLASTLINE, "Fix {} is not compatible with /intel pair styles", style);
+
   triclinic = domain->triclinic;
-  int ipe = modify->find_compute("thermo_pe");
-  c_pe = modify->compute[ipe];
+  c_pe = modify->get_compute_by_id("thermo_pe");
 
   if (pHstr) {
     pHvar = input->variable->find(pHstr);
@@ -1108,7 +1111,7 @@ int FixChargeRegulation::get_random_particle(int ptype, double charge, double rd
 
   npart_xrd = count_global; // save the number of particles, for use in MC acceptance ratio
   if (count_global > 0) {
-    const int ID_global = floor(random_equal->uniform() * count_global);
+    const int ID_global = floor(random_equal->uniform() * count_global); // NOLINT
     if ((ID_global >= count_before) && (ID_global < (count_before + count_local))) {
       const int ID_local = ID_global - count_before;
       m = ptype_ID[ID_local]; // local ID of the chosen particle
@@ -1121,6 +1124,11 @@ int FixChargeRegulation::get_random_particle(int ptype, double charge, double rd
 /* ---------------------------------------------------------------------- */
 
 double FixChargeRegulation::energy_full() {
+
+  // flag that we only need to compute the global energy
+  int eflag = ENERGY_GLOBAL | ENERGY_ONLY;
+  int vflag = VIRIAL_NONE;
+
   if (triclinic) domain->x2lamda(atom->nlocal);
   domain->pbc();
   comm->exchange();
@@ -1129,8 +1137,7 @@ double FixChargeRegulation::energy_full() {
   if (triclinic) domain->lamda2x(atom->nlocal + atom->nghost);
   if (modify->n_pre_neighbor) modify->pre_neighbor();
   neighbor->build(1);
-  int eflag = 1;
-  int vflag = 0;
+
   if (overlap_flag) {
     int overlaptestall;
     int overlaptest = 0;
@@ -1288,14 +1295,14 @@ void FixChargeRegulation::restart(char *buf)
 
   seed = static_cast<int>(list[n++]);
   random_unequal->reset(seed);
-
+  // NOLINTBEGIN
   nacid_attempts  = list[n++];
   nacid_successes = list[n++];
   nbase_attempts  = list[n++];
   nbase_successes = list[n++];
   nsalt_attempts  = list[n++];
   nsalt_successes = list[n++];
-
+  // NOLINTEND
   next_reneighbor = (bigint) ubuf(list[n++]).i;
   bigint ntimestep_restart = (bigint) ubuf(list[n++]).i;
   if (ntimestep_restart != update->ntimestep)

@@ -37,7 +37,7 @@ using namespace LAMMPS_NS;
 using namespace MathConst;
 
 static const char cite_compute_saed_c[] =
-  "compute saed command: doi:10.1088/0965-0393/21/5/055020\n\n"
+  "compute saed command: https://doi.org/10.1088/0965-0393/21/5/055020\n\n"
   "@Article{Coleman13,\n"
   " author = {S. P. Coleman and D. E. Spearot and L. Capolungo},\n"
   " title = {Virtual Diffraction Analysis of {Ni} [010] Symmetric Tilt Grain Boundaries},\n"
@@ -52,9 +52,10 @@ static const char cite_compute_saed_c[] =
 ComputeSAED::ComputeSAED(LAMMPS *lmp, int narg, char **arg) :
   Compute(lmp, narg, arg), ztype(nullptr), store_tmp(nullptr)
 {
+  nlocalgroup = 0;
   if (lmp->citeme) lmp->citeme->add(cite_compute_saed_c);
 
-  int ntypes = atom->ntypes;
+  ntypes = atom->ntypes;
   int natoms = group->count(igroup);
   int dimension = domain->dimension;
   int *periodicity = domain->periodicity;

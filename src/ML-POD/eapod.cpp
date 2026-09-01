@@ -23,6 +23,7 @@
 #include "math_const.h"
 #include "math_special.h"
 #include "memory.h"
+#include "safe_pointers.h"
 #include "tokenizer.h"
 
 #include <algorithm>
@@ -94,7 +95,7 @@ EAPOD::EAPOD(LAMMPS *_lmp, const std::string &pod_file, const std::string &coeff
   // read pod input file to podstruct
   read_pod_file(pod_file);
 
-  if (coeff_file != "") {
+  if (!coeff_file.empty()) {
     read_model_coeff_file(coeff_file);
   }
 }
@@ -135,10 +136,10 @@ EAPOD::~EAPOD()
   memory->destroy(ind44r);
 }
 
-void EAPOD::read_pod_file(std::string pod_file)
+void EAPOD::read_pod_file(const std::string &pod_file)
 {
   std::string podfilename = pod_file;
-  FILE *fppod;
+  SafeFilePtr fppod;
   if (comm->me == 0) {
 
     fppod = utils::open_potential(podfilename,lmp,nullptr);
@@ -157,7 +158,6 @@ void EAPOD::read_pod_file(std::string pod_file)
       ptr = fgets(line,MAXLINE,fppod);
       if (ptr == nullptr) {
         eof = 1;
-        fclose(fppod);
       }
     }
     MPI_Bcast(&eof,1,MPI_INT,0,world);
@@ -174,9 +174,9 @@ void EAPOD::read_pod_file(std::string pod_file)
       // ignore
     }
 
-    if (words.size() == 0) continue;
+    if (words.empty()) continue;
 
-    auto keywd = words[0];
+    const auto &keywd = words[0];
 
     if (keywd == "species") {
       nelements = words.size()-1;
@@ -414,10 +414,10 @@ void EAPOD::read_pod_file(std::string pod_file)
   }
 }
 
-void EAPOD::read_model_coeff_file(std::string coeff_file)
+void EAPOD::read_model_coeff_file(const std::string &coeff_file)
 {
   std::string coefffilename = coeff_file;
-  FILE *fpcoeff;
+  SafeFilePtr fpcoeff;
   if (comm->me == 0) {
 
     fpcoeff = utils::open_potential(coefffilename,lmp,nullptr);
@@ -435,7 +435,6 @@ void EAPOD::read_model_coeff_file(std::string coeff_file)
       ptr = fgets(line,MAXLINE,fpcoeff);
       if (ptr == nullptr) {
         eof = 1;
-        fclose(fpcoeff);
       }
     }
     MPI_Bcast(&eof,1,MPI_INT,0,world);
@@ -472,7 +471,6 @@ void EAPOD::read_model_coeff_file(std::string coeff_file)
       ptr = fgets(line,MAXLINE,fpcoeff);
       if (ptr == nullptr) {
         eof = 1;
-        fclose(fpcoeff);
       }
     }
 
@@ -497,7 +495,6 @@ void EAPOD::read_model_coeff_file(std::string coeff_file)
       ptr = fgets(line,MAXLINE,fpcoeff);
       if (ptr == nullptr) {
         eof = 1;
-        fclose(fpcoeff);
       }
     }
 
@@ -522,7 +519,6 @@ void EAPOD::read_model_coeff_file(std::string coeff_file)
       ptr = fgets(line,MAXLINE,fpcoeff);
       if (ptr == nullptr) {
         eof = 1;
-        fclose(fpcoeff);
       }
     }
 
@@ -538,10 +534,6 @@ void EAPOD::read_model_coeff_file(std::string coeff_file)
     } catch (TokenizerException &e) {
       error->all(FLERR,"Incorrect format in model coefficient file: {}", e.what());
     }
-  }
-
-  if (comm->me == 0) {
-    if (!eof) fclose(fpcoeff);
   }
 
 
@@ -565,10 +557,10 @@ void EAPOD::read_model_coeff_file(std::string coeff_file)
   }
 }
 
-int EAPOD::read_coeff_file(std::string coeff_file)
+int EAPOD::read_coeff_file(const std::string &coeff_file)
 {
   std::string coefffilename = coeff_file;
-  FILE *fpcoeff;
+  SafeFilePtr fpcoeff;
   if (comm->me == 0) {
 
     fpcoeff = utils::open_potential(coefffilename,lmp,nullptr);
@@ -587,7 +579,6 @@ int EAPOD::read_coeff_file(std::string coeff_file)
       ptr = fgets(line,MAXLINE,fpcoeff);
       if (ptr == nullptr) {
         eof = 1;
-        fclose(fpcoeff);
       }
     }
     MPI_Bcast(&eof,1,MPI_INT,0,world);
@@ -623,7 +614,6 @@ int EAPOD::read_coeff_file(std::string coeff_file)
       ptr = fgets(line,MAXLINE,fpcoeff);
       if (ptr == nullptr) {
         eof = 1;
-        fclose(fpcoeff);
       }
     }
 
@@ -644,10 +634,6 @@ int EAPOD::read_coeff_file(std::string coeff_file)
   }
 
   if (comm->me == 0) {
-    if (!eof) fclose(fpcoeff);
-  }
-
-  if (comm->me == 0) {
     utils::logmesg(lmp, "**************** Begin of POD Coefficients ****************\n");
     utils::logmesg(lmp, "total number of coefficients for POD potential: {}\n", ncoeffall);
     utils::logmesg(lmp, "**************** End of POD Coefficients ****************\n\n");
@@ -657,10 +643,10 @@ int EAPOD::read_coeff_file(std::string coeff_file)
 }
 
 // funcion to read the projection matrix from file.
-int EAPOD::read_projection_matrix(std::string proj_file)
+int EAPOD::read_projection_matrix(const std::string &proj_file)
 {
   std::string projfilename = proj_file;
-  FILE *fpproj;
+  SafeFilePtr fpproj;
   if (comm->me == 0) {
 
     fpproj = utils::open_potential(projfilename,lmp,nullptr);
@@ -679,7 +665,6 @@ int EAPOD::read_projection_matrix(std::string proj_file)
       ptr = fgets(line,MAXLINE,fpproj);
       if (ptr == nullptr) {
         eof = 1;
-        fclose(fpproj);
       }
     }
     MPI_Bcast(&eof,1,MPI_INT,0,world);
@@ -715,7 +700,6 @@ int EAPOD::read_projection_matrix(std::string proj_file)
       ptr = fgets(line,MAXLINE,fpproj);
       if (ptr == nullptr) {
         eof = 1;
-        fclose(fpproj);
       }
     }
 
@@ -734,9 +718,6 @@ int EAPOD::read_projection_matrix(std::string proj_file)
       error->all(FLERR,"Incorrect format in PCA projection matrix file: {}", e.what());
     }
   }
-  if (comm->me == 0) {
-    if (!eof) fclose(fpproj);
-  }
 
   if (comm->me == 0) {
     utils::logmesg(lmp, "**************** Begin of PCA projection matrix ****************\n");
@@ -748,10 +729,10 @@ int EAPOD::read_projection_matrix(std::string proj_file)
 }
 
 // read Centroids from file
-int EAPOD::read_centroids(std::string centroids_file)
+int EAPOD::read_centroids(const std::string &centroids_file)
 {
   std::string centfilename = centroids_file;
-  FILE *fpcent;
+  SafeFilePtr fpcent;
   if (comm->me == 0) {
 
     fpcent = utils::open_potential(centfilename,lmp,nullptr);
@@ -770,7 +751,6 @@ int EAPOD::read_centroids(std::string centroids_file)
       ptr = fgets(line,MAXLINE,fpcent);
       if (ptr == nullptr) {
         eof = 1;
-        fclose(fpcent);
       }
     }
     MPI_Bcast(&eof,1,MPI_INT,0,world);
@@ -806,7 +786,6 @@ int EAPOD::read_centroids(std::string centroids_file)
       ptr = fgets(line,MAXLINE,fpcent);
       if (ptr == nullptr) {
         eof = 1;
-        fclose(fpcent);
       }
     }
 
@@ -824,9 +803,6 @@ int EAPOD::read_centroids(std::string centroids_file)
     } catch (TokenizerException &e) {
       error->all(FLERR,"Incorrect format in PCA centroids file: {}", e.what());
     }
-  }
-  if (comm->me == 0) {
-    if (!eof) fclose(fpcent);
   }
 
   if (comm->me == 0) {
@@ -1465,7 +1441,6 @@ void EAPOD::base_descriptors(double *basedesc, double *x,
         Njmax = Nj;
         free_temp_memory();
         allocate_temp_memory(Njmax);
-        if (comm->me == 0) utils::logmesg(lmp, "reallocate temporary memory with Njmax = %d ...\n", Njmax);
       }
 
       double *rij = &tmpmem[0]; // 3*Nj
@@ -1480,7 +1455,7 @@ void EAPOD::base_descriptors(double *basedesc, double *x,
       peratombase_descriptors(bd, bdd, rij, &tmpmem[3*Nj], tj, Nj);
 
       for (int m=0; m<Mdesc; m++) {
-        basedesc[i + natom*(m)] = bd[m];
+        basedesc[i + natom*m] = bd[m];
       }
 
     }
@@ -1508,7 +1483,6 @@ void EAPOD::descriptors(double *gd, double *gdd, double *basedesc, double *x,
         Njmax = Nj;
         free_temp_memory();
         allocate_temp_memory(Njmax);
-        if (comm->me == 0) utils::logmesg(lmp, "reallocate temporary memory with Njmax = %d ...\n", Njmax);
       }
 
       double *rij = &tmpmem[0]; // 3*Nj
@@ -1523,7 +1497,7 @@ void EAPOD::descriptors(double *gd, double *gdd, double *basedesc, double *x,
       peratombase_descriptors(bd, bdd, rij, &tmpmem[3*Nj], tj, Nj);
 
       for (int m=0; m<Mdesc; m++) {
-        basedesc[i + natom*(m)] = bd[m];
+        basedesc[i + natom*m] = bd[m];
         int k = nCoeffPerElement*(ti[0]-1) + nl1 + m; // increment by nl1 because of the one-body descriptor
         gd[k] += bd[m];
         for (int n=0; n<Nj; n++) {
@@ -1565,7 +1539,6 @@ void EAPOD::descriptors(double *gd, double *gdd, double *basedesc, double *probd
         Njmax = Nj;
         free_temp_memory();
         allocate_temp_memory(Njmax);
-        if (comm->me == 0) utils::logmesg(lmp, "reallocate temporary memory with Njmax = %d ...\n", Njmax);
       }
 
       double *rij = &tmpmem[0]; // 3*Nj
@@ -1583,9 +1556,9 @@ void EAPOD::descriptors(double *gd, double *gdd, double *basedesc, double *probd
       peratomenvironment_descriptors(pd, pdd, bd, bdd, tmpmem, ti[0] - 1,  Nj);
 
       for (int j = 0; j < nClusters; j++) {
-        probdesc[i + natom*(j)] = pd[j];
+        probdesc[i + natom*j] = pd[j];
         for (int m=0; m<Mdesc; m++) {
-          basedesc[i + natom*(m)] = bd[m];
+          basedesc[i + natom*m] = bd[m];
           int k = nCoeffPerElement*(ti[0]-1) + nl1 + m + j*Mdesc; // increment by nl1 because of the one-body descriptor
           gd[k] += pd[j]*bd[m];
           for (int n=0; n<Nj; n++) {
@@ -2018,7 +1991,7 @@ void EAPOD::radialbasis(double *rbf, double *rbfx, double *rbfy, double *rbfz, d
     if (nbesselpars==1) {
       for (int i=0; i<besseldegree; i++) {
         double a = (i+1)*MY_PI;
-        double b = (sqrt(2.0/(rmax))/(i+1));
+        double b = (sqrt(2.0/rmax)/(i+1));
         double af1 = a*f1;
 
         double sinax = sin(a*x0);
@@ -2040,7 +2013,7 @@ void EAPOD::radialbasis(double *rbf, double *rbfx, double *rbfy, double *rbfz, d
       double dx1 = (alpha/rmax)*t2/t1;
       for (int i=0; i<besseldegree; i++) {
         double a = (i+1)*MY_PI;
-        double b = (sqrt(2.0/(rmax))/(i+1));
+        double b = (sqrt(2.0/rmax)/(i+1));
         double af1 = a*f1;
 
         double sinax = sin(a*x0);
@@ -2077,7 +2050,7 @@ void EAPOD::radialbasis(double *rbf, double *rbfx, double *rbfy, double *rbfz, d
       double dx2 = (alpha/rmax)*t2/t1;
       for (int i=0; i<besseldegree; i++) {
         double a = (i+1)*MY_PI;
-        double b = (sqrt(2.0/(rmax))/(i+1));
+        double b = (sqrt(2.0/rmax)/(i+1));
         double af1 = a*f1;
 
         double sinax = sin(a*x0);
@@ -2396,7 +2369,7 @@ void EAPOD::snapshots(double *rbf, double *xij, int N)
       // Loop over all Bessel degrees
       for (int i=0; i<besseldegree; i++) {
         double a = (i+1)*MY_PI;
-        double b = (sqrt(2.0/(rmax))/(i+1));
+        double b = (sqrt(2.0/rmax)/(i+1));
         int nij = n + N*i + N*besseldegree*j;
 
         // Compute the RBF
@@ -2641,8 +2614,12 @@ int EAPOD::estimate_temp_memory(int Nj)
   // abf, abfx, abfy, abfz
   int nmax6 = 4*(Nj+1)*Kmax;
 
+  // P, cp, D, pca in peratom_environment_descriptors(), stored in the same region
+  int nmax6a = 3*nClusters + nComponents;
+
   // Determine the maximum amount of memory needed for U, Ux, Uy, Uz, sumU, cU, rbf, rbfx, rbfy, rbfz, abf, abfx, abfy, abfz
   int nmax7 = (nmax5 > nmax6) ? nmax5 : nmax6;
+  nmax7 = (nmax7 > nmax6a) ? nmax7 : nmax6a;
   int nmax8 = nmax2 + nmax3 + nmax4 + nmax7;
 
   // Determine the total amount of memory needed for all double memory
@@ -2660,13 +2637,25 @@ int EAPOD::estimate_temp_memory(int Nj)
 
 void EAPOD::allocate_temp_memory(int Nj)
 {
+  // guarantee a minimum size so all buffers exist even for atoms without neighbors
+  if (Nj < 1) Nj = 1;
   estimate_temp_memory(Nj);
+
+  // in peratomenergyforce2() the bdd buffer stores the coefficients cb and the
+  // force coefficients, which require (nl2 + nl3 + nl4) + nelements*K3*nrbf3
+  // entries.  this size is set by the potential and does not depend on the
+  // number of neighbors, so it can exceed 3*Nj*Mdesc when Nj is small.
+
+  int nbdd = 3*Nj*Mdesc;
+  int ncb = (nl2 + nl3 + nl4) + nelements*K3*nrbf3;
+  if (nbdd < ncb) nbdd = ncb;
+
   memory->create(tmpmem, ndblmem, "tmpmem");
   memory->create(tmpint, nintmem, "tmpint");
-  memory->create(bd, Mdesc, "bdd");
-  memory->create(bdd, 3*Nj*Mdesc, "bdd");
-  memory->create(pd, nClusters, "bdd");
-  memory->create(pdd, 3*Nj*nClusters, "bdd");
+  memory->create(bd, Mdesc, "bd");
+  memory->create(bdd, nbdd, "bdd");
+  memory->create(pd, nClusters, "pd");
+  memory->create(pdd, 3*Nj*nClusters, "pdd");
 }
 
 void EAPOD::free_temp_memory()

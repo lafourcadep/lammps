@@ -31,6 +31,7 @@ Available topics in mostly chronological order are:
 - `Refactored grid communication using Grid3d/Grid2d classes instead of GridComm`_
 - `FLERR as first argument to minimum image functions in Domain class`_
 - `Use utils::logmesg() instead of error->warning()`_
+- `Explicit interpretation for custom neighbor list cutoffs`_
 
 ----
 
@@ -164,7 +165,7 @@ New:
 .. seealso::
 
    :cpp:func:`utils::count_words() <LAMMPS_NS::utils::count_words>`,
-   :cpp:func:`utils::trim_comments() <LAMMPS_NS::utils::trim_comments>`
+   :cpp:func:`utils::trim_comment() <LAMMPS_NS::utils::trim_comment>`
 
 
 Use utils::numeric() functions instead of force->numeric()
@@ -335,7 +336,7 @@ Use of "override" instead of "virtual"
 
 .. versionchanged:: 17Feb2022
 
-Since LAMMPS requires C++11, we switched to use the "override" keyword
+Since LAMMPS requires C++17, we switched to use the "override" keyword
 instead of "virtual" to indicate polymorphism in derived classes.  This
 allows the C++ compiler to better detect inconsistencies when an
 override is intended or not.  Please note that "override" has to be
@@ -663,7 +664,8 @@ Use utils::logmesg() instead of error->warning()
 .. versionchanged:: 22Jul2025
 
 The ``Error::message()`` method has been removed since its functionality
-has been superseded by the :cpp:func:`utils::logmesg` function.
+has been superseded by the :cpp:func:`utils::logmesg()
+<LAMMPS_NS::utils::logmesg>` function.
 
 Old:
 
@@ -678,5 +680,39 @@ New:
 .. code-block:: c++
 
    if (comm->me == 0) utils::logmesg(lmp, "INFO: About to read data file: {}\n", filename);
+
+This change is **required** or else the code will not compile.
+
+Explicit interpretation for custom neighbor list cutoffs
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The default neighbor list is built with a cutoff *per pair of atom types*, so
+a request for a custom cutoff is ambiguous on its own: the same number can
+mean "the largest cutoff used by any type pair" or "this cutoff for every type
+pair".  Assuming the former where the latter was meant silently truncates the
+list for the type pairs that use a shorter pair style cutoff.
+
+``NeighRequest::set_cutoff()`` has therefore been replaced by two functions
+that each state the intended interpretation, and must be called instead:
+
+- ``set_cutoff_max(cutoff)`` -- the maximum across atom types, individual type
+  pairs may use a shorter cutoff.  This is the typical case for pair styles.
+- ``set_cutoff_fixed(cutoff)`` -- applies uniformly to every pair of atom
+  types.  This is the typical case for a fix or compute analyzing a fixed
+  range, e.g. an RDF.
+
+Old:
+
+.. code-block:: c++
+
+   auto req = neighbor->add_request(this, NeighConst::REQ_OCCASIONAL);
+   if (cutflag) req->set_cutoff(mycutneigh);
+
+New:
+
+.. code-block:: c++
+
+   auto req = neighbor->add_request(this, NeighConst::REQ_OCCASIONAL);
+   if (cutflag) req->set_cutoff_fixed(mycutneigh);
 
 This change is **required** or else the code will not compile.

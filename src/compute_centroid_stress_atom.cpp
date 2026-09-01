@@ -52,7 +52,7 @@ static const char cite_centroid_angle_improper_dihedral[] =
     "}\n\n";
 
 static const char cite_centroid_shake_rigid[] =
-    "compute centroid/stress/atom for constrained dynamics: doi:10.1063/5.0070930\n\n"
+    "compute centroid/stress/atom for constrained dynamics: https://doi.org/10.1063/5.0070930\n\n"
     "@article{Surblys2021,\n"
     " author = {Surblys, Donatas and Matsubara, Hiroki and Kikugawa, Gota and Ohara, Taku},\n"
     " journal = {Journal of Applied Physics},\n"
@@ -69,7 +69,7 @@ static const char cite_centroid_shake_rigid[] =
 /* ---------------------------------------------------------------------- */
 
 ComputeCentroidStressAtom::ComputeCentroidStressAtom(LAMMPS *lmp, int narg, char **arg) :
-    Compute(lmp, narg, arg), id_temp(nullptr), stress(nullptr)
+    Compute(lmp, narg, arg), temperature(nullptr), id_temp(nullptr), stress(nullptr)
 {
   if (narg < 4) error->all(FLERR, "Illegal compute centroid/stress/atom command");
 

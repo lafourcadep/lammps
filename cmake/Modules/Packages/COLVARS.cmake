@@ -19,7 +19,9 @@ target_include_directories(colvars PUBLIC ${LAMMPS_LIB_SOURCE_DIR}/colvars)
 # The line below is needed to locate math_eigen_impl.h
 target_include_directories(colvars PRIVATE ${LAMMPS_SOURCE_DIR})
 target_link_libraries(lammps PRIVATE colvars)
-
+if(LAMMPS_CXX_COMPILER_NAME STREQUAL "hipcc")
+  target_compile_options(colvars PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:SHELL:-x c++>")
+endif()
 if(BUILD_OMP)
   # Enable OpenMP for Colvars as well
   target_compile_options(colvars PRIVATE ${OpenMP_CXX_FLAGS})
@@ -27,6 +29,7 @@ if(BUILD_OMP)
 endif()
 
 if(BUILD_MPI)
+  target_compile_definitions(colvars PUBLIC -DCOLVARS_MPI)
   target_link_libraries(colvars PUBLIC MPI::MPI_CXX)
 endif()
 

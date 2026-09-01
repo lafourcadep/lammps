@@ -53,13 +53,13 @@ void FixDeformKokkos::pre_exchange()
 
 /* ---------------------------------------------------------------------- */
 
-void FixDeformKokkos::end_of_step()
+void FixDeformKokkos::update_box()
 {
-  if (remapflag == Domain::X_REMAP && rfix.size() > 0)
+  if (remapflag == Domain::X_REMAP && !rfix.empty())
     atomKK->sync(Host,ALL_MASK);
 
-  FixDeform::end_of_step();
+  FixDeform::update_box();
 
-  if (remapflag == Domain::X_REMAP && rfix.size() > 0)
+  if (remapflag == Domain::X_REMAP && !rfix.empty())
     atomKK->modified(Host,ALL_MASK);
 }

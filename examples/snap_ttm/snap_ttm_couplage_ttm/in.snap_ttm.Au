@@ -1,8 +1,8 @@
-# Demonstrate Te-dependent SNAP Au potential
+# Te-dependent SNAP Au potential with ttm coupling (final boss)
 
 # Initialize simulation
-variable nrep equal 10
-variable a equal 4.08
+variable nrep equal 4
+variable a equal 4.078
 units    metal
 
 # Generate the box and atom positions using a FCC lattice
@@ -18,32 +18,36 @@ create_atoms    1 box
 mass            1 196.967
 
 # TTM with electronic temperature read out of an external grid (see python script)
-#fix	     twotemp all ttm 342785 1.2470e-5 0.087614 0.0005365 29.5917 47.5679 58.4613 21 11 11 infile dir.inputs/ttm_grid.in
+#fix	     twotemp all ttm 342785 1.2470e-5 0.087614 0.0005365 29.5917 47.5679 58.4613 11 11 11 infile dir.inputs/ttm_grid.in
   
 # TTM with constant electronic temperature (in K)
-variable init_et equal 10000.
-fix	       twotemp all ttm 342785 1.2470e-5 0.087614 0.0005365 29.5917 47.5679 58.4613 21 11 11 set ${init_et}
+variable init_et_eV equal 1.0
+variable conv_K_to_eV equal 8.61732814974056e-5    
+variable init_et equal ${init_et_eV}/${conv_K_to_eV}
+
+fix	       twotemp all ttm 342785 1.2470e-5 0.087614 0.0005365 29.5917 47.5679 58.4613 11 11 11 set ${init_et}
 
 # ZBL parameters  
-variable zblcutinner equal 3.5
-variable zblcutouter equal 4.5
+variable zblcutinner equal 2.0
+variable zblcutouter equal 3.5
 variable zblz equal 79
 
-# Te-dependent SNAP + ZBL potential (hybrid/overlay)
 pair_style hybrid/overlay zbl ${zblcutinner} ${zblcutouter} snap_ttm
 pair_coeff 1 1 zbl ${zblz} ${zblz}
-
-# Snap receives the f_twotemp (per-atom electronic temperature) to automatically adapt the potential coefficients (per-atom)
 pair_coeff * * snap_ttm dir.inputs/Au.snapcoeff dir.inputs/Au.snapparam dir.inputs/Au.snapbetas Au f_twotemp
 
+
+run 1 pre yes post no
+reset_timestep 0
+  
 # Setup output
-thermo          10
-thermo_style    custom step temp pe ke etotal f_twotemp[1] f_twotemp[2]
+thermo          1
+thermo_style    custom step temp pe ke etotal press f_twotemp[1] f_twotemp[2]
 thermo_modify 	format float "%20.16g"
 thermo_modify 	norm yes
 
 # Set up NVE run
-timestep     2.0e-3
+timestep     1.0e-3
 neighbor     2.0 bin
 neigh_modify every 5 delay 0 check yes
 
@@ -66,11 +70,18 @@ variable     avg_e    equal etotal/atoms
 variable     avg_Ti equal temp
 variable     pstime equal dt*step
 
-# Dumping for ovito  
-dump	       10 all custom 1 dir.dumps/dump.*.snap_ttm id x y z f_twotemp
+variable     sxx equal pxx
+variable     syy equal pyy
+variable     szz equal pzz
+variable     avg_press equal (v_sxx+v_syy+v_szz)/3.
 
+# Dumping for ovito  
+#dump	       10 all custom 1 dir.dumps/dump.*.snap_ttm id x y z f_twotemp
+
+velocity  all create 600.0 3423 dist gaussian
+  
 # We like the .csv file better than the LAMMPS log file
-fix 	       extra all print 10 "AA ${pstime} ${avg_Ti} ${avg_Te} ${avg_e} ${avg_pe} ${avg_ke} ${total_e} ${total_pe} ${total_ke}" file thermo_global.dat screen no
+fix 	       extra all print 10 "${pstime} ${avg_Ti} ${avg_Te} ${avg_e} ${avg_pe} ${avg_ke} ${total_e} ${total_pe} ${total_ke} ${avg_press}" file thermo_global_ttm_coupling_${init_et_eV}.dat screen no
 
 fix 	       nveall all nve
-run          1000
+run          10000

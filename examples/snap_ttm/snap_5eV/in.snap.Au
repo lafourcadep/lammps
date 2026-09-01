@@ -1,0 +1,73 @@
+# Fixed Te SNAP Au potential at Te = 5 eV
+
+# Initialize simulation
+variable nrep equal 4
+variable a equal 4.078
+units    metal
+
+# Generate the box and atom positions using a FCC lattice
+variable nx equal ${nrep}
+variable ny equal ${nrep}
+variable nz equal ${nrep}
+  
+boundary        p p p
+lattice         fcc $a
+region          box block 0 ${nx} 0 ${ny} 0 ${nz}
+create_box      1 box
+create_atoms    1 box
+mass            1 196.9665
+
+# ZBL parameters  
+variable zblcutinner equal 2.0
+variable zblcutouter equal 3.5
+variable zblz equal 79
+
+pair_style hybrid/overlay zbl ${zblcutinner} ${zblcutouter} snap
+pair_coeff 1 1 zbl ${zblz} ${zblz}
+pair_coeff * * snap Au.snapcoeff Au.snapparam Au
+
+# Setup output
+thermo          1
+thermo_style    custom step temp pe ke etotal press pxx pyy pzz
+thermo_modify 	format float "%20.16g"
+thermo_modify 	norm yes
+
+# Set up NVE run
+timestep     1.0e-3
+neighbor     2.0 bin
+neigh_modify every 5 delay 0 check yes
+
+# Setting variables for output
+compute	     epotatom  all pe/atom
+compute	     ekinatom  all ke/atom
+  
+variable     total_pe equal pe
+variable     avg_pe   equal pe/atoms
+
+variable     total_ke equal ke
+variable     avg_ke   equal ke/atoms
+  
+variable     total_e  equal etotal
+variable     avg_e    equal etotal/atoms
+  
+variable     avg_Ti equal temp
+variable     pstime equal dt*step
+
+variable     sxx equal pxx
+variable     syy equal pyy
+variable     szz equal pzz
+variable     avg_press equal (v_sxx+v_syy+v_szz)/3.
+variable     avg_Te equal 0.0
+  
+# Dumping for ovito  
+#dump	       10 all custom 50 dir.dumps/dump.*.snap_ttm id x y z
+
+velocity  all create 600.0 3423 dist gaussian
+    
+# We like the .csv file better than the LAMMPS log file
+fix 	       extra all print 10 "${pstime} ${avg_Ti} ${avg_Te} ${avg_e} ${avg_pe} ${avg_ke} ${total_e} ${total_pe} ${total_ke} ${avg_press}" file thermo_global_snap_5eV.dat screen no
+
+fix 	       nveall all nve
+#fix          1 all npt temp 300.0 300.0 0.1 aniso 0.0 0.0 1.0
+  
+run          1000

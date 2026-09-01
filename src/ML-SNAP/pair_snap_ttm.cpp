@@ -283,11 +283,11 @@ void PairSNAPTTM::evaluate_electronic_temperature_dependent_betazero(const std::
   // Open CSV and write header + samples
   std::ofstream ofs(csv_path);
   if (!ofs) {
-    throw std::runtime_error("Failed to open CSV file: " + csv_path);
+    error->one(FLERR,"Failed to open CSV file: {}", csv_path);
   }
   ofs << "# Te b0(Te)\n";
   ofs << std::fixed << std::setprecision(17);
-  
+
   // Evenly spaced points, inclusive of both endpoints when M >= 2
   for (int i = 0; i < M; ++i) {
     double xi;
@@ -309,7 +309,7 @@ void PairSNAPTTM::check_read_betas(const std::string& csv_path)
   // Open CSV and write header + samples
   std::ofstream ofs(csv_path);
   if (!ofs) {
-    throw std::runtime_error("Failed to open CSV file: " + csv_path);
+    error->one(FLERR,"Failed to open CSV file: {}", csv_path);
   }
   ofs << "# Te";
   for (int i = 0; i<ncoeffall; i++)
@@ -344,13 +344,14 @@ void PairSNAPTTM::compute_beta()
   for (int ii = 0; ii < list->inum; ii++) {
     i = list->ilist[ii];
     double Te_loc = fix_vector[i] * conv_K_to_eV;
+    //    std::cout << "Te_loc = " << Te_loc << std::endl;
     const int itype = type[i];
     const int ielem = map[itype];
     double* coeffi = coeffelem[ielem];
     //    double* coeffi = compute_electronic_temperature_dependent_betas(Te_loc);
     coeffivec = beta_splines_eval_vec(Te_loc);
     for (int icoeff = 0; icoeff < ncoeff; icoeff++)
-      beta[ii][icoeff] = coeffi[icoeff+1];
+      beta[ii][icoeff] = coeffivec[icoeff+1];
 
     // if (quadraticflag) {
     //   int k = ncoeff+1;
@@ -515,12 +516,14 @@ void PairSNAPTTM::coeff(int narg, char **arg)
   //  std::abort();
   
   // Check if b0 is correctly evaluated using the polynomial function
-  std::string csv_path = "dir.inputs/eval_betazero.csv";
-  evaluate_electronic_temperature_dependent_betazero(csv_path);
+  if (comm->me == 0) {
+    std::string csv_path = "dir.inputs/eval_betazero.csv";
+    evaluate_electronic_temperature_dependent_betazero(csv_path);
 
-  // Check if b1->bN are correctly read
-  csv_path = "dir.inputs/eval_betas.csv";
-  check_read_betas(csv_path);
+    // Check if b1->bN are correctly read
+    csv_path = "dir.inputs/eval_betas.csv";
+    check_read_betas(csv_path);
+  }
 
   // Construct the spline evaluations of b1 to b55
   beta_splines_build();
